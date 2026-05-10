@@ -1,0 +1,48 @@
+quiet_hours:
+  # ── ACME Corporation ─────────────────────────────────────────────────────────
+  # Outbound customer communications are suppressed during these windows.
+  # critical_override: true means P1/Sev-1 messages bypass quiet hours entirely.
+  # cooldown_minutes: minimum gap between two non-critical outbound messages
+  #   to the same contact (prevents message flooding).
+  - tenant_id: acme-corp
+    cooldown_minutes: 30
+    critical_override: true           # P1 always bypasses quiet hours
+    windows:
+      # Weeknight window (Eastern Time)
+      - days:
+          - monday
+          - tuesday
+          - wednesday
+          - thursday
+          - friday
+        start: "22:00"
+        end: "08:00"
+        timezone: America/New_York
+      # Weekend window — longer suppression period
+      - days:
+          - saturday
+          - sunday
+        start: "21:00"
+        end: "09:00"
+        timezone: America/New_York
+
+  # ── Vertex Systems Ltd ────────────────────────────────────────────────────────
+  - tenant_id: vertex-systems
+    cooldown_minutes: 45
+    critical_override: true
+    windows:
+      - days:
+          - monday
+          - tuesday
+          - wednesday
+          - thursday
+          - friday
+        start: "23:00"
+        end: "07:00"
+        timezone: Europe/London
+      - days:
+          - saturday
+          - sunday
+        start: "20:00"
+        end: "09:00"
+        timezone: Europe/London

@@ -1,0 +1,24 @@
+sla_rules:
+  # P1 — Critical: service is down or data is at risk.
+  - severity: P1
+    response_time_minutes: 15
+    resolution_time_minutes: 240      # 4 hours
+    breach_action: escalate
+
+  # P2 — High: significant degradation affecting multiple users.
+  - severity: P2
+    response_time_minutes: 60         # 1 hour
+    resolution_time_minutes: 480      # 8 hours
+    breach_action: escalate
+
+  # P3 — Medium: partial impairment, workaround available.
+  - severity: P3
+    response_time_minutes: 240        # 4 hours
+    resolution_time_minutes: 1440     # 24 hours
+    breach_action: notify
+
+  # P4 — Low: cosmetic issue or feature request.
+  - severity: P4
+    response_time_minutes: 1440       # 24 hours
+    resolution_time_minutes: 4320     # 72 hours
+    breach_action: log

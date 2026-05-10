@@ -1,0 +1,81 @@
+articles:
+  - id: connectivity-001
+    title: Network Connectivity Troubleshooting
+    file: connectivity.md
+    tags:
+      - network
+      - connectivity
+      - timeout
+      - latency
+      - unreachable
+      - dns
+    components:
+      - api-gateway
+      - network-service
+    min_confidence: 0.60
+
+  - id: auth-001
+    title: Authentication and Login Failures
+    file: auth_issues.md
+    tags:
+      - authentication
+      - login
+      - token
+      - oauth
+      - unauthorized
+      - "401"
+      - "403"
+      - credential
+    components:
+      - auth-service
+    min_confidence: 0.65
+
+  - id: perf-001
+    title: Performance Degradation and High Latency
+    file: performance.md
+    tags:
+      - performance
+      - slow
+      - degraded
+      - latency
+      - cpu
+      - memory
+      - throughput
+      - bottleneck
+    components:
+      - compute-engine
+      - api-gateway
+    min_confidence: 0.60
+
+  - id: storage-001
+    title: Storage Access Errors and Data Availability
+    file: storage.md
+    tags:
+      - storage
+      - disk
+      - bucket
+      - file
+      - upload
+      - download
+      - s3
+      - object
+      - unavailable
+    components:
+      - storage-service
+    min_confidence: 0.65
+
+  - id: billing-001
+    title: Billing, Invoicing, and Subscription Issues
+    file: billing.md
+    tags:
+      - billing
+      - invoice
+      - payment
+      - subscription
+      - cost
+      - charge
+      - account
+      - quota
+    components:
+      - billing-service
+    min_confidence: 0.70

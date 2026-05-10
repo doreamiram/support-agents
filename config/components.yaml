@@ -1,0 +1,24 @@
+components:
+  - id: api-gateway
+    name: API Gateway
+    description: Ingress layer; routes and authenticates all inbound API traffic.
+
+  - id: auth-service
+    name: Authentication Service
+    description: Handles user authentication, token issuance, and OAuth2 flows.
+
+  - id: compute-engine
+    name: Compute Engine
+    description: Manages compute workloads, virtual machine provisioning, and scheduling.
+
+  - id: storage-service
+    name: Storage Service
+    description: Object and block storage; handles upload, download, and replication.
+
+  - id: network-service
+    name: Network Service
+    description: VPC management, private link, DNS resolution, and firewall rules.
+
+  - id: billing-service
+    name: Billing Service
+    description: Usage metering, invoice generation, and subscription management.

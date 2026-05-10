@@ -1,0 +1,50 @@
+tenants:
+  - id: acme-corp
+    name: ACME Corporation
+    timezone: America/New_York
+    # Per-tenant secret used for HMAC-SHA256 webhook signature verification (Phase 2).
+    # In production this would be stored in a secrets manager, never in a repo.
+    webhook_secret: "acme-webhook-secret-do-not-use-in-prod"
+    contacts:
+      - id: alice.chen
+        name: Alice Chen
+        channel: slack
+        external_id: "U0ACM001"
+        role: admin
+        email: alice.chen@acme-corp.example
+      - id: bob.smith
+        name: Bob Smith
+        channel: jira
+        external_id: "bob.smith@acme-corp.example"
+        role: engineer
+        email: bob.smith@acme-corp.example
+      - id: carol.jones
+        name: Carol Jones
+        channel: whatsapp
+        external_id: "+15550100001"
+        role: billing
+        email: carol.jones@acme-corp.example
+
+  - id: vertex-systems
+    name: Vertex Systems Ltd
+    timezone: Europe/London
+    webhook_secret: "vertex-webhook-secret-do-not-use-in-prod"
+    contacts:
+      - id: dave.miller
+        name: Dave Miller
+        channel: slack
+        external_id: "U0VTX001"
+        role: admin
+        email: dave.miller@vertex-sys.example
+      - id: emma.wilson
+        name: Emma Wilson
+        channel: jira
+        external_id: "emma.wilson@vertex-sys.example"
+        role: engineer
+        email: emma.wilson@vertex-sys.example
+      - id: frank.okonkwo
+        name: Frank Okonkwo
+        channel: whatsapp
+        external_id: "+447700900001"
+        role: admin
+        email: frank.okonkwo@vertex-sys.example

@@ -1,0 +1,118 @@
+escalation_chains:
+  # ── ACME Corporation ─────────────────────────────────────────────────────────
+
+  # P1 — all components: three-tier escalation
+  - tenant_id: acme-corp
+    severity: P1
+    component: "*"
+    contacts:
+      - name: ACME On-Call Engineer
+        method: slack
+        address: "@oncall-acme"
+        delay_minutes: 0
+      - name: ACME Engineering Manager
+        method: email
+        address: eng-manager@acme-corp.example
+        delay_minutes: 15
+      - name: ACME VP Engineering
+        method: email
+        address: vp-eng@acme-corp.example
+        delay_minutes: 30
+
+  # P1 — auth-service: also page the Identity team lead immediately
+  - tenant_id: acme-corp
+    severity: P1
+    component: auth-service
+    contacts:
+      - name: ACME Identity Team Lead
+        method: slack
+        address: "@identity-lead-acme"
+        delay_minutes: 0
+      - name: ACME On-Call Engineer
+        method: slack
+        address: "@oncall-acme"
+        delay_minutes: 0
+      - name: ACME Engineering Manager
+        method: email
+        address: eng-manager@acme-corp.example
+        delay_minutes: 15
+
+  # P2 — all components: two-tier escalation
+  - tenant_id: acme-corp
+    severity: P2
+    component: "*"
+    contacts:
+      - name: ACME On-Call Engineer
+        method: slack
+        address: "@oncall-acme"
+        delay_minutes: 0
+      - name: ACME Engineering Manager
+        method: email
+        address: eng-manager@acme-corp.example
+        delay_minutes: 30
+
+  # P3 — all components: first-line support only
+  - tenant_id: acme-corp
+    severity: P3
+    component: "*"
+    contacts:
+      - name: ACME Support Queue
+        method: slack
+        address: "@support-acme"
+        delay_minutes: 0
+
+  # P4 — all components: ticket queue only (no live notification)
+  - tenant_id: acme-corp
+    severity: P4
+    component: "*"
+    contacts:
+      - name: ACME Support Queue
+        method: slack
+        address: "@support-acme"
+        delay_minutes: 0
+
+  # ── Vertex Systems Ltd ────────────────────────────────────────────────────────
+
+  # P1 — all components
+  - tenant_id: vertex-systems
+    severity: P1
+    component: "*"
+    contacts:
+      - name: Vertex Primary On-Call
+        method: slack
+        address: "@oncall-vertex"
+        delay_minutes: 0
+      - name: Vertex Engineering Lead
+        method: email
+        address: eng-lead@vertex-sys.example
+        delay_minutes: 20
+
+  # P2 — all components
+  - tenant_id: vertex-systems
+    severity: P2
+    component: "*"
+    contacts:
+      - name: Vertex Primary On-Call
+        method: slack
+        address: "@oncall-vertex"
+        delay_minutes: 0
+
+  # P3 — all components
+  - tenant_id: vertex-systems
+    severity: P3
+    component: "*"
+    contacts:
+      - name: Vertex Support Queue
+        method: slack
+        address: "@support-vertex"
+        delay_minutes: 0
+
+  # P4 — all components
+  - tenant_id: vertex-systems
+    severity: P4
+    component: "*"
+    contacts:
+      - name: Vertex Support Queue
+        method: slack
+        address: "@support-vertex"
+        delay_minutes: 0
