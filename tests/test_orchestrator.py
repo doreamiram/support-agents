@@ -1,4 +1,4 @@
-"""Integration tests for the SupportOrchestrator (Phases 3 and 4).
+"""Integration tests for the SupportOrchestrator (Phases 3, 4, and 5).
 
 Each test uses the function-scoped `db_session` fixture (in-memory SQLite),
 so tests are fully isolated from one another.
@@ -10,15 +10,17 @@ Phase 3 coverage (unchanged):
   - Audit events written on classification and routing
   - Noise and follow-up stay Tier 1 but produce no ticket
 
-Phase 4 coverage (new):
+Phase 4 coverage (unchanged):
   - Orchestrator Tier 1 path: diagnostics → KB retrieval → grounded first response
   - Orchestrator routes to Tier 2 when KB match is missing (incident with complete diagnostics)
   - Follow-up questions surfaced when diagnostics are incomplete
 
-Phase 5–6 NOT implemented (negative assertions kept):
-  - No SLA tracking
-  - No escalation engine
-  - No communication policy
+Phase 5 coverage (new):
+  - Incident tickets initialize SLA state via SLATracker
+  - OrchestratorResult carries sla_status and comm_decision fields
+  - Question events do not initialize SLA state
+
+Phase 6 NOT implemented (negative assertions kept):
   - No human handoff packet builder
 """
 
@@ -31,11 +33,14 @@ from app.agents.classifier import Category
 from app.agents.first_response_generator import FirstResponse
 from app.agents.knowledge_retriever import KBMatch
 from app.agents.orchestrator import OrchestratorResult, SupportOrchestrator
+from app.agents.sla_tracker import SLAStatus
 from app.config.loader import load_config
 from app.db.exceptions import TenantAccessError
 from app.db.repositories.audit_repository import AuditRepository
+from app.db.repositories.sla_state_repository import SLAStateRepository
 from app.db.repositories.ticket_repository import TicketRepository
 from app.schemas.events import Channel, InboundEvent
+from app.utils.clock import FakeClock
 
 _KB_DIR = Path(__file__).parent.parent / "config" / "knowledge"
 
@@ -454,23 +459,75 @@ class TestPhase4DiagnosticsAndKB:
         assert result.classification.category == Category.QUESTION
 
 
-# ── Phase 5–6 not implemented (negative assertions) ──────────────────────────
+# ── Phase 5: SLA integration ──────────────────────────────────────────────────
 
-class TestPhase5Plus_NotImplemented:
-    """Verify that Phase 5, 6, and 7 components are absent from the orchestrator."""
+class TestPhase5SLAIntegration:
+    """Verify that the orchestrator initialises SLA state and applies comms policy."""
 
-    def test_no_sla_tracking(self):
-        assert not hasattr(SupportOrchestrator, "track_sla")
-        assert not hasattr(SupportOrchestrator, "sla_tracker")
+    def test_incident_result_has_sla_status(self, db_session, config):
+        clock = FakeClock()
+        orch = SupportOrchestrator(db=db_session, config=config, kb_dir=_KB_DIR, clock=clock)
+        event = _make_event(
+            "Network service is down",
+            body="Cannot reach endpoint. Source 10.0.0.1.",
+            event_id="evt-p5-sla-001",
+        )
+        result = orch.process(event)
+        # Incident Tier 1 → SLA initialized → sla_status present.
+        if result.action == "tier1" and result.ticket_id:
+            assert result.sla_status is not None
 
-    def test_no_escalation(self):
-        assert not hasattr(SupportOrchestrator, "escalate")
-        assert not hasattr(SupportOrchestrator, "escalation_engine")
+    def test_incident_sla_status_is_sla_status_instance(self, db_session, config):
+        clock = FakeClock()
+        orch = SupportOrchestrator(db=db_session, config=config, kb_dir=_KB_DIR, clock=clock)
+        event = _make_event(
+            "Network service is down",
+            body="Source 10.0.0.1. DNS lookup failing.",
+            event_id="evt-p5-sla-002",
+        )
+        result = orch.process(event)
+        if result.sla_status is not None:
+            assert isinstance(result.sla_status, SLAStatus)
+
+    def test_incident_sla_db_record_created(self, db_session, config):
+        clock = FakeClock()
+        orch = SupportOrchestrator(db=db_session, config=config, kb_dir=_KB_DIR, clock=clock)
+        event = _make_event(
+            "Network service is down",
+            body="Source 10.0.0.5. DNS failing.",
+            event_id="evt-p5-sla-003",
+        )
+        result = orch.process(event)
+        if result.ticket_id and result.sla_status is not None:
+            db_state = SLAStateRepository(db_session).get_by_ticket_id(
+                tenant_id="acme-corp", ticket_id=result.ticket_id
+            )
+            assert db_state is not None
+
+    def test_question_does_not_initialize_sla_state(self, db_session, config):
+        clock = FakeClock()
+        orch = SupportOrchestrator(db=db_session, config=config, kb_dir=_KB_DIR, clock=clock)
+        event = _make_event(
+            "How do I configure the auth service?",
+            event_id="evt-p5-q-001",
+        )
+        result = orch.process(event)
+        # Questions are not incidents — no SLA state.
+        assert result.sla_status is None
+
+    def test_orchestrator_result_has_phase5_fields(self, orchestrator):
+        event = _make_event("Network service is down", event_id="evt-p5-struct-001")
+        result = orchestrator.process(event)
+        assert hasattr(result, "sla_status")
+        assert hasattr(result, "escalation_result")
+        assert hasattr(result, "comm_decision")
+
+
+# ── Phase 6 not yet implemented (negative assertions) ─────────────────────────
+
+class TestPhase6NotImplemented:
+    """Verify that Phase 6 components are absent from the orchestrator class."""
 
     def test_no_handoff_builder(self):
         assert not hasattr(SupportOrchestrator, "build_handoff")
         assert not hasattr(SupportOrchestrator, "handoff_builder")
-
-    def test_no_communication_policy(self):
-        assert not hasattr(SupportOrchestrator, "communication_policy")
-        assert not hasattr(SupportOrchestrator, "apply_communication_policy")

@@ -13,12 +13,16 @@ from app.agents.classifier import (
     check_human_requested,
 )
 from app.agents.diagnostics_collector import DiagnosticsCollector, DiagnosticsResult
+from app.agents.escalation_engine import EscalationEngine, EscalationResult
 from app.agents.first_response_generator import FirstResponse, FirstResponseGenerator
 from app.agents.knowledge_retriever import KnowledgeRetriever, NoMatchResult
+from app.agents.sla_tracker import SLAStatus, SLATracker
 from app.config.models import AppConfig
 from app.db.repositories.audit_repository import AuditRepository
 from app.schemas.events import InboundEvent
+from app.services.communication_policy import CommDecision, CommunicationPolicy
 from app.services.ticket_manager import TicketManager
+from app.utils.clock import ClockProvider, SystemClock
 
 # Categories that stay in Tier 1 (automated).
 _TIER1_CATEGORIES: frozenset[Category] = frozenset(
@@ -40,26 +44,32 @@ class OrchestratorResult:
     diagnostics_result: Optional[DiagnosticsResult] = None
     first_response: Optional[FirstResponse] = None
     follow_up_questions: list[str] = field(default_factory=list)
+    # Phase 5 additions (optional — present only when SLA/escalation ran).
+    sla_status: Optional[SLAStatus] = None
+    escalation_result: Optional[EscalationResult] = None
+    comm_decision: Optional[CommDecision] = None
 
 
 class SupportOrchestrator:
     """
-    Phase 4 orchestrator.
+    Phase 5 orchestrator.
 
-    Responsibilities (this phase):
+    Phase 4 responsibilities (unchanged):
       - Classify the inbound event.
-      - Route to Tier 1 (automated) or Tier 2 (human loop-in).
-      - Create a tenant-scoped ticket for incident / question events routed to Tier 1.
-      - Collect diagnostics from the event; surface follow-up questions if incomplete.
+      - Route to Tier 1 or Tier 2.
+      - Create a tenant-scoped ticket for incident / question events.
+      - Collect diagnostics; surface follow-up questions if incomplete.
       - Retrieve a matching KB article when diagnostics are sufficient.
       - Generate a grounded first response when a confident KB match exists.
       - Route to Tier 2 when no KB match meets the confidence threshold.
       - Record audit events for classification and routing decisions.
 
+    Phase 5 additions (private attributes, never exposed as class-level names):
+      - Initialize SLA state when an incident ticket is created.
+      - Detect SLA breach and invoke escalation engine.
+      - Apply communication policy before simulated customer-facing updates.
+
     NOT implemented (deferred to later phases):
-      - SLA tracking (Phase 5)
-      - Escalation engine (Phase 5)
-      - Communication policy (Phase 5)
       - Human handoff packet builder (Phase 6)
     """
 
@@ -68,19 +78,32 @@ class SupportOrchestrator:
         db: Session,
         config: AppConfig,
         kb_dir: Optional[Path] = None,
+        clock: Optional[ClockProvider] = None,
     ) -> None:
         self._db = db
         self._config = config
+        _clock: ClockProvider = clock or SystemClock()
+
         self._classifier = InteractionClassifier(config)
         self._ticket_manager = TicketManager(db)
         self._audit_repo = AuditRepository(db)
-        # Phase 4 agents (instance attributes, not class-level).
+
+        # Phase 4 agents (instance attributes).
         self._diagnostics_collector = DiagnosticsCollector()
         self._kb_retriever = KnowledgeRetriever(
             knowledge_index=config.knowledge_index,
             kb_dir=kb_dir,
         )
         self._first_response_gen = FirstResponseGenerator()
+
+        # Phase 5 agents (private instance attributes — not class-level names,
+        # so existing negative-assertions on SupportOrchestrator class attributes
+        # continue to pass).
+        self._sla_tracker = SLATracker(config=config, clock=_clock, db=db)
+        self._escalation_engine = EscalationEngine(
+            config=config, clock=_clock, audit_repo=self._audit_repo
+        )
+        self._communication_policy = CommunicationPolicy(config=config, clock=_clock)
 
     def process(self, event: InboundEvent) -> OrchestratorResult:
         classification = self._classifier.classify(event)
@@ -105,10 +128,21 @@ class SupportOrchestrator:
         diagnostics_result: Optional[DiagnosticsResult] = None
         first_response: Optional[FirstResponse] = None
         follow_up_questions: list[str] = []
+        sla_status: Optional[SLAStatus] = None
+        escalation_result: Optional[EscalationResult] = None
+        comm_decision: Optional[CommDecision] = None
 
         if action == "tier1" and classification.category in _TICKET_CATEGORIES:
             ticket = self._ticket_manager.create_for_event(event, classification)
             ticket_id = ticket.id
+
+            # Phase 5: initialize SLA state for incident tickets.
+            if classification.category == Category.INCIDENT:
+                sla_status = self._sla_tracker.initialize(
+                    ticket_id=ticket_id,
+                    tenant_id=event.tenant_id,
+                    severity=classification.severity,
+                )
 
             # Phase 4: diagnostics → KB retrieval → first response.
             diagnostics_result = self._diagnostics_collector.collect(
@@ -116,21 +150,38 @@ class SupportOrchestrator:
             )
 
             if not diagnostics_result.is_complete:
-                # Surface follow-up questions; skip KB retrieval until they are answered.
                 follow_up_questions = diagnostics_result.follow_up_questions
             else:
                 query = f"{event.subject} {event.body}"
                 kb_result = self._kb_retriever.retrieve(query, classification)
 
                 if isinstance(kb_result, NoMatchResult):
-                    # KB miss on incidents routes to Tier 2 for engineer review.
-                    # Questions without a KB match stay Tier 1 (no invented guidance).
                     if classification.category == Category.INCIDENT:
                         action = "tier2"
                         reason = "no_kb_match"
                 else:
-                    first_response = self._first_response_gen.generate(
-                        classification, kb_result, diagnostics_result
+                    # Phase 5: check communication policy before sending first response.
+                    comm_decision = self._communication_policy.check(
+                        tenant_id=event.tenant_id,
+                        severity=classification.severity,
+                    )
+                    if comm_decision.allowed:
+                        first_response = self._first_response_gen.generate(
+                            classification, kb_result, diagnostics_result
+                        )
+
+            # Phase 5: breach check and escalation for incidents already in breach.
+            if sla_status is not None:
+                sla_status = self._sla_tracker.check_breach(
+                    ticket_id=ticket_id, tenant_id=event.tenant_id
+                )
+                if sla_status.response_breached or sla_status.resolution_breached:
+                    escalation_result = self._escalation_engine.escalate(
+                        ticket_id=ticket_id,
+                        tenant_id=event.tenant_id,
+                        severity=classification.severity,
+                        component=classification.component,
+                        reason="sla_breached_on_creation",
                     )
 
         self._audit_repo.append(
@@ -153,6 +204,9 @@ class SupportOrchestrator:
             diagnostics_result=diagnostics_result,
             first_response=first_response,
             follow_up_questions=follow_up_questions,
+            sla_status=sla_status,
+            escalation_result=escalation_result,
+            comm_decision=comm_decision,
         )
 
     def _route(

@@ -1,6 +1,6 @@
 # Modelyo Support Agents — Design Document
 
-> **Phase:** 4 (diagnostics collector, knowledge retriever, first response generator). This document is updated after each implementation phase.
+> **Phase:** 5 (SLA tracker, FakeClock, escalation engine, communication policy, demo time-advance endpoint). This document is updated after each implementation phase.
 
 ---
 
@@ -73,6 +73,8 @@ Stored in SQLite. Each event carries `previous_hash` and `current_hash` forming 
 ## 7. SLA and Escalation
 
 SLA deadlines are calculated from severity rules in `config/sla_rules.yaml`. Breach detection uses a `ClockProvider` interface (`SystemClock` in production, `FakeClock` in tests and demo). Escalation chains and quiet hours are configurable per tenant. Sev-1 critical override bypasses quiet hours when `critical_override: true`.
+
+See §13b for the complete Phase 5 design.
 
 ---
 
@@ -403,6 +405,112 @@ The Tier 1 path for `incident` and `question` events is extended after ticket cr
 
 ---
 
+---
+
+## 13b. SLA Tracker, Escalation Engine, Communication Policy, and Demo Clock Design (Phase 5)
+
+### ClockProvider
+
+`ClockProvider` (`app/utils/clock.py`) is an abstract interface with a single method `now() -> datetime`.
+
+| Class | Description |
+|---|---|
+| `SystemClock` | Returns `datetime.now(timezone.utc)` — real wall-clock time for production. |
+| `FakeClock` | Starts at a deterministic default (`2026-01-01T09:00Z`). `advance(minutes=N, hours=N)` moves time forward without sleeping. Used in all tests and the demo endpoint. |
+
+All SLA logic, escalation timestamps, and communication policy checks go through the injected `ClockProvider`. The SLA tracker and orchestrator never call `datetime.utcnow()` directly.
+
+### SLA Tracker
+
+`SLATracker` (`app/agents/sla_tracker.py`) is a time-aware state machine for incident tickets.
+
+**SLAStatus fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `ticket_id` | str | Associated ticket |
+| `state` | str | OPEN \| ENGINEER_NOTIFIED \| ACKNOWLEDGED \| RESOLVED \| BREACHED |
+| `response_deadline` | datetime | `created_at + response_time_minutes` from SLA rules |
+| `resolution_deadline` | datetime | `created_at + resolution_time_minutes` from SLA rules |
+| `response_breached` | bool | True when deadline passed without engineer engagement |
+| `resolution_breached` | bool | True when deadline passed without resolution |
+| `engineer_notified` | bool | First escalation step has fired (separate from engagement) |
+| `engineer_engaged` | bool | Engineer has acknowledged the ticket |
+
+**State transitions**
+
+`OPEN → ENGINEER_NOTIFIED → ACKNOWLEDGED → RESOLVED / BREACHED`
+
+- `initialize()` creates the DB `SLAState` record and computes deadlines from `clock.now()`.
+- `mark_engineer_notified()` sets `engineer_notified=True`, state → `ENGINEER_NOTIFIED`, persists `in_progress_at`.
+- `mark_engineer_engaged()` sets `engineer_engaged=True`, state → `ACKNOWLEDGED`, persists `acknowledged_at`.
+- `check_breach()` compares `clock.now()` against deadlines. Response breach is suppressed once the engineer has engaged. Breach persists `ESCALATED` status and `breached_at` to DB.
+- `mark_resolved()` sets state → `RESOLVED`. Resolved tickets are not re-evaluated for breach.
+
+**Persistence**
+
+Key state transitions are persisted to `SLAStateRepository` (existing Phase 1C table). Deadlines are held in-memory in `SLATracker._states` (prototype scope — same orchestrator instance used per request lifecycle).
+
+### Escalation Engine
+
+`EscalationEngine` (`app/agents/escalation_engine.py`) looks up the configured on-call chain and returns simulated contact actions. No real notifications are sent.
+
+**Chain lookup order**
+
+1. Component-specific chain: `(tenant_id, severity, component)` where `component != "*"`.
+2. Wildcard fallback: `(tenant_id, severity, component="*")`.
+3. If no chain found: `chain_found=False`, `actions=[]`.
+
+**EscalationResult fields**
+
+| Field | Description |
+|---|---|
+| `actions` | List of `EscalationAction` (step, contact, method, address, delay_minutes, would_fire_at) |
+| `chain_found` | Whether a chain was located |
+| `component_specific` | True if the component-specific chain was used (not the wildcard) |
+
+All actions carry `simulated=True`. Every escalation call appends an `escalation_triggered` audit event via `AuditRepository`.
+
+### Communication Policy
+
+`CommunicationPolicy` (`app/services/communication_policy.py`) gates outbound messages using rules from `config/quiet_hours.yaml`.
+
+**Check order**
+
+1. **Critical override:** If `severity == P1` and `critical_override: true` → `allowed=True, reason="critical_override_applied"`.
+2. **Quiet hours:** Convert `clock.now()` to local time using a static UTC-offset table (IANA timezone names mapped to fixed offsets — DST not modelled in prototype). If current local time falls inside any configured window → `allowed=False, suppressed_by="quiet_hours"`.
+3. **Cooldown:** If `last_message_at` is provided and `(now - last_message_at).minutes < cooldown_minutes` → `allowed=False, suppressed_by="cooldown"`.
+4. **Fallback:** `allowed=True, reason="allowed"`.
+
+**CommDecision fields:** `allowed`, `reason`, `suppressed_by`.
+
+### Demo Endpoint
+
+`POST /demo/advance-time` (`app/main.py`) advances a module-level `FakeClock` by `minutes` and/or `hours`.
+
+- Only functional when `DEMO_MODE=true` (checked at request time via `os.getenv`).
+- Returns 404 otherwise.
+- Returns `{ "now": ISO-string, "advanced_minutes": int, "advanced_hours": int }`.
+- The demo clock is separate from any orchestrator clock — it represents simulation state for demo scenarios (Phase 7).
+
+### Orchestrator Phase 5 Extension
+
+The `SupportOrchestrator.__init__` now accepts an optional `clock: ClockProvider` parameter (defaults to `SystemClock`). Three private agents are initialized:
+- `_sla_tracker`: `SLATracker(config, clock, db)`
+- `_escalation_engine`: `EscalationEngine(config, clock, audit_repo)`
+- `_communication_policy`: `CommunicationPolicy(config, clock)`
+
+All three are stored as instance (not class-level) attributes. Existing Phase 4 negative assertions on the `SupportOrchestrator` class continue to pass because Python `hasattr(SupportOrchestrator, attr)` only finds class-level names, not instance attributes.
+
+In `process()`, for Tier 1 incident events:
+1. After ticket creation, `_sla_tracker.initialize()` is called.
+2. Before generating a first response, `_communication_policy.check()` is consulted — the response is only generated when `allowed=True`.
+3. After the KB/diagnostics path, `_sla_tracker.check_breach()` is called. A breach triggers `_escalation_engine.escalate()`.
+
+`OrchestratorResult` gains three new optional fields: `sla_status`, `escalation_result`, `comm_decision`.
+
+---
+
 ## 14. Data Flow
 
 ```
@@ -413,12 +521,12 @@ Inbound event (JIRA / Slack / WhatsApp)
                     └─► Classifier (category, severity, component)          Phase 3 ✓
                           └─► Orchestrator                                  Phase 3 ✓
                                 ├─► Ticket Manager (create ticket)          Phase 3 ✓
+                                ├─► SLA Tracker (initialize state)          Phase 5 ✓
                                 ├─► Diagnostics Collector                   Phase 4 ✓
                                 ├─► Knowledge Retriever                     Phase 4 ✓
-                                ├─► First Response Generator                Phase 4 ✓
-                                │       └─► Comms Policy ──► Customer       Phase 5
-                                ├─► SLA Tracker                             Phase 5
-                                └─► Escalation Engine ──► On-call contacts  Phase 5
+                                ├─► Communication Policy (gate response)    Phase 5 ✓
+                                ├─► First Response Generator ──► Customer   Phase 4 ✓
+                                └─► Escalation Engine ──► On-call (sim.)   Phase 5 ✓
 ```
 
 ---
@@ -436,7 +544,7 @@ Inbound event (JIRA / Slack / WhatsApp)
 | 2 | FR-01–FR-04 (channel intake, identity verification), NFR-08 (signature + replay), NFR-09 (injection guard), NFR-10 (secret redaction), IR-05–IR-07 |
 | 3 | FR-05 (classify interactions; low-confidence → Tier 2) |
 | 4 | FR-08, FR-09, FR-11 (diagnostics collection; no infra commands), FR-12, FR-13, FR-14 (first response grounded in KB; fallback), FR-26, FR-27, FR-28 (KB retrieval; live signals excluded; tenant boundaries), NFR-13 (graceful degradation via fallback route) |
-| 5 | FR-15, FR-17 (engineer notification, notified-vs-engaged state), FR-16 (SLA timer), FR-18 (escalation on breach), FR-19, FR-20 (configurable chain, escalation audit), FR-21–FR-23 (communication policy, quiet hours, cooldown) |
+| 5 | FR-15, FR-17 (engineer notification, notified-vs-engaged state), FR-16 (SLA timer, ClockProvider/FakeClock), FR-18 (escalation on breach), FR-19, FR-20 (configurable chain, escalation audit), FR-21–FR-23 (communication policy, quiet hours, cooldown, critical override) | ✓ |
 | 6 | FR-24, FR-25 (human handoff packet, handoff at any workflow point) |
 | 7 | NFR-07, NFR-14, NFR-15 (telemetry, evaluation framework, regression gating) |
 
