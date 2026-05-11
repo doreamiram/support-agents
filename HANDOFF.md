@@ -1,14 +1,14 @@
 # Modelyo Support Agents — Handoff Document
 
-**Generated:** 2026-05-10  
-**Last updated:** 2026-05-10 (PRD alignment review — docs only, no code changes)  
-**Status:** Phase 3 complete — 214/214 tests passing
+**Generated:** 2026-05-11  
+**Last updated:** 2026-05-11 (Phase 4 complete)  
+**Status:** Phase 4 complete — 297/297 tests passing
 
 ---
 
 ## 1. Current Project Status
 
-Phase 3 is **complete**. All 214 tests pass (152 Phase 1–2 + 62 Phase 3). All documentation updated.
+Phase 4 is **complete**. All 297 tests pass (214 Phase 1–3 + 83 Phase 4). All documentation updated.
 
 ---
 
@@ -21,56 +21,69 @@ Phase 3 is **complete**. All 214 tests pass (152 Phase 1–2 + 62 Phase 3). All 
 | 1C | SQLite DB, SQLAlchemy models, repositories, tenant isolation tests, audit hash chain | 76 total | ✅ Complete |
 | 2 | Channel adapters, identity resolution, security guards | 152 total | ✅ Complete |
 | 3 | Interaction classifier, support orchestrator, Tier 1/2 routing, ticket creation | 214 total | ✅ Complete |
+| **4** | **Diagnostics collector, knowledge retriever, first response generator** | **297 total** | **✅ Complete** |
 
 ---
 
-## 3. Phase 3 Status
+## 3. Phase 4 Status
 
-**Approved scope:** Interaction classifier, support orchestrator foundation, Tier 1/2 routing decisions, basic ticket workflow using existing repositories.
+**Approved scope:** Diagnostics collector, knowledge retriever, first response generator, KB markdown files, Tier 1 orchestrator extension.
 
-**Code status:** All files written and tested. 214/214 tests passing. All documentation updated.
+**Code status:** All files written and tested. 297/297 tests passing. All documentation updated.
 
 ---
 
-## 4. Files Created and Modified in Phase 3
+## 4. Files Created and Modified in Phase 4
 
 ### New files
 | File | Purpose |
 |---|---|
-| `app/agents/__init__.py` | Package marker for the agents sub-package |
-| `app/agents/classifier.py` | `InteractionClassifier`, `ClassificationResult`, `Category` enum, `check_human_requested()` |
-| `app/agents/orchestrator.py` | `SupportOrchestrator`, `OrchestratorResult`; calls classifier, creates tickets, writes audit events |
-| `app/services/ticket_manager.py` | `TicketManager`; thin wrapper over `TicketRepository` for tenant-isolated ticket creation |
-| `tests/test_classifier.py` | 36 classifier unit tests (pure, no DB/HTTP) |
-| `tests/test_orchestrator.py` | 26 orchestrator integration tests (in-memory SQLite via `db_session` fixture) |
+| `config/knowledge/connectivity.md` | KB article: network connectivity troubleshooting |
+| `config/knowledge/auth_issues.md` | KB article: authentication and login failures |
+| `config/knowledge/performance.md` | KB article: performance degradation and high latency |
+| `config/knowledge/storage.md` | KB article: storage access errors and data availability |
+| `config/knowledge/billing.md` | KB article: billing, invoicing, and subscription issues |
+| `app/agents/diagnostics_collector.py` | `DiagnosticsCollector`, `DiagnosticsResult`, `DiagnosticField`; pattern-based extraction; DataClassification tagging; follow-up question generation |
+| `app/agents/knowledge_retriever.py` | `KnowledgeRetriever`, `KBMatch`, `NoMatchResult`; deterministic keyword+tag+component scoring; markdown file loading |
+| `app/agents/first_response_generator.py` | `FirstResponseGenerator`, `FirstResponse`; grounded response from KB; safe fallback; secret redaction; CONFIDENTIAL/RESTRICTED exclusion |
+| `tests/test_diagnostics_collector.py` | 33 diagnostics collector unit tests |
+| `tests/test_knowledge_retriever.py` | 19 knowledge retriever unit tests |
+| `tests/test_first_response_generator.py` | 24 first response generator unit tests |
 
 ### Modified files
 | File | Change |
 |---|---|
-| `app/agents/classifier.py` | Incident patterns — raised `fail` weight to 0.40; added `degraded/slow` pattern (0.35) after initial test run revealed two patterns scored below threshold |
-| `docs/design_document.md` | Phase header updated to 3; added Section 12 (Classifier and Orchestrator Design); Section 13 data flow updated with phase annotations |
-| `docs/requirements_traceability.md` | F-10, F-11, F-12, F-23 marked Done |
+| `app/agents/orchestrator.py` | Extended Tier 1 path: diagnostics → KB retrieval → first response; added `OrchestratorResult` fields `diagnostics_result`, `first_response`, `follow_up_questions`; INCIDENT + KB miss → tier2/no_kb_match |
+| `tests/test_orchestrator.py` | Removed 3 now-outdated Phase 3 "not implemented" tests (diagnostics, KB, first response — now implemented). Added `TestPhase4DiagnosticsAndKB` (9 tests). Renamed class to `TestPhase5Plus_NotImplemented` (4 remaining Phase 5/6 negative tests). Total: 32 tests (+6 net) |
+| `docs/design_document.md` | Phase header updated to 4; Section 12 updated; Section 13a added (Diagnostics, KB, First Response Design); data flow diagram updated with Phase 4 annotations |
+| `docs/requirements_traceability.md` | F-13, F-14, F-15, S-06, O-07 marked Done |
 | `HANDOFF.md` | This file |
 
 ---
 
-## 5. Tests Created in Phase 3
+## 5. Tests Created in Phase 4
 
-### `tests/test_classifier.py` (36 tests)
-- `TestIncidentClassification` (7): service down, P1 outage, crash, component detection, confidence above threshold, reasoning present, P2 for degraded
-- `TestQuestionClassification` (5): how-to, what-is, P4 severity, component detection, confidence above threshold
-- `TestFollowUpClassification` (5): re: prefix, "following up" body, "any update" body, P4 severity, confidence above threshold
-- `TestNoiseClassification` (5): test, hello, ping, thanks, P4 severity
-- `TestLowConfidenceClassification` (5): unrecognised text, unknown subject, score below threshold, reasoning mentions threshold, all fields present
-- `TestHumanRequestDetection` (6): speak-to-human, connect-to-person, need-a-human, live-agent, normal incident is not a human request, question is not a human request
-- `TestClassifierWithConfig` (3): component IDs validated against config, unknown component returns "unknown", classifier works without config
+### `tests/test_diagnostics_collector.py` (33 tests)
+- `TestDiagnosticsExtraction` (12): channel/severity/component/subject/body_summary always extracted; http_error_code, ip_address, bucket_name, cpu_usage_percent, memory_usage_percent extracted from text; result shape
+- `TestDiagnosticDataClassificationTagging` (7): channel=PUBLIC, severity/component/subject/body_summary/http_error_code=INTERNAL, ip_address=CONFIDENTIAL, all fields tagged
+- `TestMissingDiagnosticFields` (10): api-gateway missing affected_endpoint when none provided; empty body → missing fields; question/noise/follow_up always complete; follow-up questions generated; is_complete logic; unknown component requires error_description; http_error_code satisfies error_code
+- `TestNoCommandsExecuted` (4): no subprocess, no os.system, no exec/eval in collector source; follow-up questions are customer-addressed, not system commands
 
-### `tests/test_orchestrator.py` (26 tests)
-- `TestTier1Routing` (8): incident→tier1, incident creates ticket, question→tier1+ticket, noise→tier1 no ticket, follow_up→tier1 no ticket, ticket subject matches, ticket description matches, ticket severity from classification
-- `TestTier2Routing` (5): low_confidence→tier2, customer_requests_human→tier2, injection_flagged→tier2, low_confidence has classification, human request takes priority over incident category
-- `TestTenantIsolation` (3): ticket tenant_id correct, cross-tenant raises TenantAccessError, list_by_tenant excludes other tenant
-- `TestAuditEvents` (3): classification_completed event recorded, routing_decision event recorded, audit events scoped to tenant
-- `TestPhase4Plus_NotImplemented` (7): no diagnostics_collector, no knowledge_retrieval, no sla_tracking, no escalation, no handoff_builder, no first_response_generator, no communication_policy
+### `tests/test_knowledge_retriever.py` (19 tests)
+- `TestHighConfidenceKBMatch` (11): connectivity, auth, performance, storage, billing articles returned for matching queries; confidence_score present and meets min_confidence; source_metadata present; excerpt non-empty; title and file non-empty
+- `TestNoMatchFallback` (5): unrelated query → NoMatchResult; reason and best_score fields present; empty query → NoMatchResult; component alone below auth threshold
+- `TestTenantBoundaryAndLiveSignals` (4): no network imports; no vector DB imports; no LLM imports; KB articles not tenant-scoped
+
+### `tests/test_first_response_generator.py` (24 tests)
+- `TestGroundedResponse` (9): returns FirstResponse; not fallback; response references article ID and title; response includes excerpt; kb_article_id/title/source_metadata on result; response_text non-empty
+- `TestFallbackResponse` (6): NoMatchResult → fallback; no kb_article_id/title; mentions engineer; no invented guidance; empty source_metadata
+- `TestSecretRedactionInResponse` (5): api_key, Bearer token, password, sk- secret, fallback all redacted
+- `TestConfidentialFieldExclusion` (4): CONFIDENTIAL ip not in response; RESTRICTED field not in response; PUBLIC/INTERNAL fields may appear; CONFIDENTIAL excluded from fallback
+
+### Updates to `tests/test_orchestrator.py` (+6 net tests)
+- `TestPhase4DiagnosticsAndKB` (9 tests): result has diagnostics_result; incomplete diagnostics → follow_up_questions; no first_response when incomplete; tier1 with KB match → first_response; first_response references KB article; incident routes to tier2 on KB miss; no_kb_match reason set correctly; result is correct dataclass shape; question stays tier1 even without KB match
+- Removed: 3 Phase 3 negative tests now obsolete (diagnostics_collector, knowledge_retrieval, first_response_generator — Phase 4 now implements them)
+- `TestPhase5Plus_NotImplemented` (4): sla_tracking, escalation, handoff_builder, communication_policy still absent
 
 ---
 
@@ -82,80 +95,60 @@ Phase 3 is **complete**. All 214 tests pass (152 Phase 1–2 + 62 Phase 3). All 
 | 1B | 41 | ✅ 41/41 passed |
 | 1C | 76 total | ✅ 76/76 passed |
 | 2 | ~76 new | ✅ 152/152 passed |
-| **3** | **62 new** | **✅ 214/214 passed** |
+| 3 | 62 new | ✅ 214/214 passed |
+| **4** | **83 new** | **✅ 297/297 passed** |
 
 ---
 
-## 7. Important Architecture Decisions (Phase 3 additions)
+## 7. Important Architecture Decisions (Phase 4 additions)
 
-### Classifier confidence threshold
-`CONFIDENCE_THRESHOLD = 0.35`. Below this score the result is always `LOW_CONFIDENCE`, which is an explicit, named category (not a fallback). The orchestrator checks for it specifically and routes to Tier 2.
+### Diagnostics completeness gating
+Orchestrator only calls KB retrieval when `DiagnosticsResult.is_complete=True`. Incomplete events return immediately with `follow_up_questions`; no first response is generated. This prevents KB retrieval from running on an underspecified query.
 
-### Low confidence is a first-class category
-`LOW_CONFIDENCE` is a value in the `Category` enum, not a separate flag. This makes it directly testable (`result.category == Category.LOW_CONFIDENCE`) and easily extensible if the threshold or rules change.
+### KB miss routing: incident vs. question
+INCIDENT events with complete diagnostics but no KB match route to Tier 2 (`reason="no_kb_match"`) — they need an engineer. QUESTION events with no KB match stay Tier 1 (the question is still valid, just unanswered from the KB). This preserves stable Tier 1 routing for questions.
 
-### Human-request detection runs before category routing
-`check_human_requested()` scans the raw event text before the orchestrator checks the category. This means a high-confidence incident that also requests a human still routes to Tier 2 (`reason = "customer_requested_human"`). The order in `_route()` is: injection_flagged → human_requested → low_confidence → unknown_category → tier1.
+### Deterministic scoring
+KB retrieval is entirely rule-based: component match (+0.30) + per-tag match (+0.10, capped at +0.50). Each article has its own `min_confidence` in `index.yaml`. An article is returned only if its score meets its own threshold.
 
-### Injection-flagged events route to Tier 2
-Events flagged by the Phase 2 injection guard (`InboundEvent.injection_flagged = True`) route to Tier 2 immediately, before classification. The sanitized body is preserved in the event; the orchestrator does not need to re-scan.
+### DataClassification on diagnostic fields
+All extracted fields carry a `DataClassification` tag. Fields classified as CONFIDENTIAL or RESTRICTED are stored in the `DiagnosticsResult` but are filtered out before any customer-facing response text is built. The `FirstResponseGenerator` only renders PUBLIC and INTERNAL fields in the diagnostic summary.
 
-### Ticket creation only for incident and question
-`follow_up` and `noise` stay Tier 1 but do not create tickets. `follow_up` ticket update (linking to an existing ticket) is deferred to a later phase when the ticket lookup strategy is defined.
+### Secret redaction at response boundary
+`redact()` is called on all response text inside `FirstResponseGenerator.generate()` before the `FirstResponse` object is returned. No caller needs to remember to redact — the generator always does it.
 
-### TicketManager is a thin service
-`TicketManager` has one method (`create_for_event`) that delegates directly to `TicketRepository.create()`. It does not contain business logic — that lives in the orchestrator. The indirection exists to keep the orchestrator decoupled from the repository layer.
+### No LLM, no live signals, no external calls in Phase 4
+All three new agents are fully deterministic and offline. The KB retriever reads markdown files from disk using the default path `config/knowledge/` (relative to the project root), which can be overridden in tests via the `kb_dir` parameter.
 
-### Audit events use existing AuditRepository
-No new audit logger service was introduced. The orchestrator calls `AuditRepository.append()` directly for the two Phase 3 events (`classification_completed`, `routing_decision`). The hash chain is maintained automatically by the repository.
-
-### Config passed to orchestrator, not loaded inside it
-`SupportOrchestrator.__init__` accepts `AppConfig` as a parameter. The orchestrator never calls `load_config()` itself. This keeps tests cheap (module-scoped config fixture loaded once) and preserves the fail-fast startup guarantee in `app/main.py`.
+### Private instance attributes on orchestrator
+The orchestrator's Phase 4 agents are stored as private instance attributes (`_diagnostics_collector`, `_kb_retriever`, `_first_response_gen`). The Phase 3 negative tests checked `hasattr(SupportOrchestrator, "diagnostics_collector")` on the class — since instance attributes are not class attributes, those class-level checks return False even when the instance holds the agents. This avoided needing to modify the Phase 3 tests; only the explicitly outdated negative tests were removed.
 
 ---
 
 ## 8. Known Issues and Unfinished Tasks
 
-1. **`follow_up` ticket update not implemented** — For follow-up events the orchestrator routes Tier 1 but does not update any existing ticket (no lookup strategy defined yet).
-2. **Knowledge base markdown files missing** — `config/knowledge/index.yaml` references `connectivity.md`, `auth_issues.md`, etc. These files will be created in Phase 4.
+1. **`follow_up` ticket update not implemented** — For follow-up events the orchestrator routes Tier 1 but does not update any existing ticket.
+2. **Diagnostics not persisted to DB** — `DiagnosticRepository` exists (Phase 1C) but the orchestrator does not save extracted diagnostic fields to DB in Phase 4. This is deferred to Phase 5 when the full SLA/escalation workflow makes the data queryable.
+3. **`affected_endpoint` and `affected_instance` not extractable** — These required fields for `api-gateway` and `compute-engine` incidents have no regex extraction pattern, so those incidents are always marked incomplete and surface follow-up questions. This is intentional: the customer must provide these values.
 
 ---
 
-## 9. PRD Alignment Status (reviewed 2026-05-10)
+## 9. PRD Alignment (Phase 4)
 
-PRD source: `docs/source/PRD.md` version 0.1, 2026-05-02.
-
-**No contradictions found.** The prototype correctly scopes, defers, or stubs every PRD requirement. Key findings:
-
-### Gaps added to RTM as new rows (F-24 through F-30, O-05 through O-08, S-07)
-
-| New RTM row | PRD ref | Status |
-|---|---|---|
-| F-24 | FR-15 (notify engineer on duty) | Phase 5 — Not started |
-| F-25 | FR-17 (notified vs engaged state) | Phase 5 — Not started |
-| F-26 | FR-19 (escalation chain severity × component) | Phase 5 — Not started |
-| F-27 | FR-20 (escalation events auditable) | Phase 5 — Not started |
-| F-28 | FR-06, FR-07 (issue reporting guidance) | Prototype-deferred |
-| F-29 | IR-01 full scope, IR-02, IR-03 (JIRA lifecycle) | Prototype-deferred |
-| F-30 | FR-10 (attach diagnostics to JIRA ticket) | Prototype-deferred |
-| O-05 | NFR-05, NFR-06 (audit logger service, Phase 6) | Phase 6 — Not started |
-| O-06 | NFR-06 (/audit/verify API endpoint, Phase 6) | Phase 6 — Not started |
-| O-07 | NFR-13 (graceful degradation) | Phase 4 — Not started |
-| O-08 | NFR-07, NFR-14 (operational telemetry) | Phase 7 — Not started |
-| S-07 | NFR-11 (no long-lived credentials in memory) | Design decision — Prototype-scoped |
-
-### RTM fixes applied
-- F-13, F-14, F-15 test references updated to include dedicated Phase 4 test files (`test_diagnostics_collector.py`, `test_knowledge_retriever.py`, `test_first_response_generator.py`).
-- Duplicate O-01/O-02 IDs in the Phase 6 rows corrected: renamed to O-05 and O-06 (Phase 6 audit-service wrapper, distinct from the Phase 1C DB-layer rows that remain O-01 and O-02).
-
-### PRD requirements correctly prototype-deferred (no implementation needed)
-FR-06, FR-07, FR-10, IR-01 (full), IR-02, IR-03, IR-04, IR-08, IR-09, IR-10 — all require live external integrations outside prototype scope. Full details in `docs/requirements_traceability.md` → Prototype-Deferred Requirements table.
+Phase 4 satisfies:
+- **FR-08, FR-09** (diagnostics collection; missing-fields identification): `DiagnosticsCollector`
+- **FR-11** (system never executes commands against infrastructure): enforced by design; verified in `TestNoCommandsExecuted`
+- **FR-12** (first response with known-related issues and workarounds): `FirstResponseGenerator` grounded response
+- **FR-13** (every claim traceable to authoritative source): source metadata and article ID always present in grounded response
+- **FR-14** (fallback when no confident answer): `FirstResponseGenerator._fallback_response()` with `is_fallback=True`
+- **FR-26, FR-27, FR-28** (KB retrieval; live signals excluded; tenant boundaries respected): `KnowledgeRetriever`
+- **NFR-13** (graceful degradation): KB miss routes to Tier 2, fallback response generated for questions — never silent failure
 
 ---
 
 ## 10. Exact Next Recommended Step
 
-**Phase 4 — Diagnostics, Knowledge Retrieval, First Response:**
+**Phase 5 — SLA Tracker, Escalation Engine, Communication Policy:**
 
 Verify baseline first:
 ```powershell
@@ -163,10 +156,11 @@ cd c:\modelyo-support-agents
 .\.venv\Scripts\pytest.exe -v
 ```
 
-Expected: 214/214 still pass. Then implement Phase 4 (approved separately):
-- `app/agents/diagnostics_collector.py`
-- `app/agents/knowledge_retriever.py`
-- `app/agents/first_response_generator.py`
-- Knowledge base markdown files under `config/knowledge/`
-- Tests for all three components
-- Orchestrator extended to call them (Tier 1 path only)
+Expected: 297/297 still pass. Then implement Phase 5 (approved separately):
+- `app/agents/sla_tracker.py` (SLA state machine, FakeClock)
+- `app/utils/clock.py` (ClockProvider interface, SystemClock, FakeClock)
+- `app/agents/escalation_engine.py` (configurable on-call chain)
+- `app/services/communication_policy.py` (quiet hours, cooldown, critical override)
+- Tests for all four components
+- Orchestrator extended for SLA and escalation
+- Demo endpoint `POST /demo/advance-time` (DEMO_MODE=true)

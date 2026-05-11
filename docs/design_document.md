@@ -1,6 +1,6 @@
 # Modelyo Support Agents — Design Document
 
-> **Phase:** 3 (classifier, orchestrator, Tier 1/2 routing). This document is updated after each implementation phase.
+> **Phase:** 4 (diagnostics collector, knowledge retriever, first response generator). This document is updated after each implementation phase.
 
 ---
 
@@ -272,13 +272,13 @@ Component IDs are matched by regex against the combined subject + body text. The
 
 `TicketManager` (`app/services/ticket_manager.py`) wraps `TicketRepository` and creates tickets with `tenant_id` taken directly from the event. Tenant isolation is enforced by `TicketRepository`. `TicketManager` never bypasses the repository layer.
 
-**What is NOT implemented in Phase 3**
+**What is NOT implemented in Phase 3 (now implemented in Phase 4)**
 
 | Component | Phase |
 |---|---|
-| Diagnostics Collector | 4 |
-| Knowledge Retriever | 4 |
-| First Response Generator | 4 |
+| Diagnostics Collector | 4 ✓ |
+| Knowledge Retriever | 4 ✓ |
+| First Response Generator | 4 ✓ |
 | SLA Tracker | 5 |
 | Escalation Engine | 5 |
 | Communication Policy | 5 |
@@ -287,23 +287,136 @@ Component IDs are matched by regex against the combined subject + body text. The
 ### Test strategy
 
 - **`tests/test_classifier.py`** (36 tests): pure unit tests, no DB or HTTP. Module-scoped `config` and `classifier` fixtures. Covers all 5 categories, severity, component, confidence, reasoning, and human-request detection.
-- **`tests/test_orchestrator.py`** (26 tests): integration tests with function-scoped in-memory SQLite (`db_session` fixture). Covers Tier 1/Tier 2 routing, ticket creation, tenant isolation, audit event recording, and explicit negative assertions that Phase 4–6 methods are absent from the orchestrator class.
+- **`tests/test_orchestrator.py`** (32 tests): integration tests with function-scoped in-memory SQLite (`db_session` fixture). Covers Tier 1/Tier 2 routing, ticket creation, tenant isolation, audit event recording, Phase 4 diagnostics/KB/first-response path, and negative assertions that Phase 5–6 components are absent.
 
 ---
 
-## 13. Data Flow (to be expanded in Phase 4)
+## 13a. Diagnostics, Knowledge Retrieval, and First Response Design (Phase 4)
+
+### Diagnostics Collector
+
+`DiagnosticsCollector` (`app/agents/diagnostics_collector.py`) is a stateless, deterministic component. No LLM, no external I/O, no commands executed against infrastructure.
+
+**DiagnosticsResult fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `fields` | `list[DiagnosticField]` | Extracted structured fields, each with a `DataClassification` tag |
+| `missing_required` | `list[str]` | Required field names not present in the extracted set |
+| `follow_up_questions` | `list[str]` | Customer-facing questions for each missing field |
+| `is_complete` | `bool` | True when all required fields are present |
+
+**Field extraction**
+
+Structural fields (always extracted): `channel` (PUBLIC), `severity` (INTERNAL), `component` (INTERNAL), `subject` (INTERNAL), `body_summary` (INTERNAL).
+
+Pattern-extracted fields (from combined subject + body text):
+
+| Field | Pattern | Classification |
+|---|---|---|
+| `http_error_code` | 4xx/5xx digit triplet | INTERNAL |
+| `ip_address` | IPv4 dotted-decimal | CONFIDENTIAL |
+| `bucket_name` | `bucket/<name>` | INTERNAL |
+| `cpu_usage_percent` | `cpu … N%` | INTERNAL |
+| `memory_usage_percent` | `memory/ram … N%` | INTERNAL |
+| `auth_method` | oauth, api_key, saml, sso, bearer, jwt, certificate, ldap | INTERNAL |
+| `operation_type` | upload, download, delete, list, get, put, head, copy, move | INTERNAL |
+
+**Required fields per (category, component)**
+
+Only `incident` events have required fields. All other categories (`question`, `follow_up`, `noise`, `low_confidence`) always return `is_complete=True`.
+
+| Component | Required fields |
+|---|---|
+| api-gateway | http_error_code, affected_endpoint |
+| auth-service | error_code (satisfied by http_error_code), auth_method |
+| compute-engine | cpu_usage_percent, affected_instance |
+| storage-service | bucket_name, operation_type |
+| network-service | ip_address |
+| billing-service | account_id, billing_period |
+| unknown | error_description |
+
+**No-command guarantee**
+
+The collector never calls `subprocess`, `os.system`, `exec()`, or `eval()`. Follow-up questions are phrased in the second person, guiding the customer to run commands themselves.
+
+### Knowledge Retriever
+
+`KnowledgeRetriever` (`app/agents/knowledge_retriever.py`) is a deterministic keyword-, tag-, and component-based retriever. No vector database, no LLM, no live signals.
+
+**Scoring algorithm**
+
+For each article in `config/knowledge/index.yaml`:
+- Component match bonus: +0.30 if the event's component is in `article.components`
+- Tag match: +0.10 per tag that appears (as whole word or substring) in the query, capped at 0.50
+- Final score capped at 1.0
+
+An article is returned as `KBMatch` only if its score meets or exceeds its own `min_confidence`. Otherwise `NoMatchResult` is returned.
+
+**KBMatch fields**
+
+| Field | Description |
+|---|---|
+| `article_id` | Article ID from index |
+| `title` | Article title |
+| `file` | Markdown filename |
+| `confidence_score` | Score achieved (0.0–1.0) |
+| `source_metadata` | Dict with article_id, file, tags, min_confidence |
+| `excerpt` | Relevant excerpt from the markdown file |
+
+**Tenant boundary**
+
+KB articles are authoritative Modelyo runbooks (PUBLIC/INTERNAL scope). They contain no customer-specific data, so no per-tenant filter is applied to the article set. Customer ticket history (which IS tenant-scoped) is not a knowledge source in Phase 4 (deferred to Phase 7).
+
+### First Response Generator
+
+`FirstResponseGenerator` (`app/agents/first_response_generator.py`) is a deterministic mock response generator. No LLM.
+
+**Rules**
+
+1. If `kb_result` is `KBMatch`: build a grounded response referencing the article title, article ID, and excerpt. Include a safe-field summary of diagnostics (PUBLIC and INTERNAL only).
+2. If `kb_result` is `NoMatchResult`: return the safe fallback response. No technical guidance is invented.
+3. `redact()` is applied to all response text before returning (covers passwords, API keys, Bearer tokens, sk- keys, GitHub tokens, AWS keys, generic secret= patterns).
+4. CONFIDENTIAL and RESTRICTED diagnostic fields are never included in response text.
+
+**FirstResponse fields**
+
+| Field | Description |
+|---|---|
+| `response_text` | Redacted customer-facing text |
+| `kb_article_id` | Article ID used, or None for fallback |
+| `kb_article_title` | Article title, or None for fallback |
+| `is_fallback` | True when no KB match was found |
+| `source_metadata` | Forwarded from KBMatch, or empty dict for fallback |
+
+### Orchestrator Phase 4 extension
+
+The Tier 1 path for `incident` and `question` events is extended after ticket creation:
+
+1. **Diagnostics collection** — `DiagnosticsCollector.collect(event, classification)` → `DiagnosticsResult`
+2. **Incomplete diagnostics** — if `is_complete=False`: set `follow_up_questions` in result; skip KB retrieval; return action=tier1.
+3. **KB retrieval** — `KnowledgeRetriever.retrieve(query, classification)` → `KBMatch | NoMatchResult`
+4. **KB miss for incidents** — if `NoMatchResult` and category is `INCIDENT`: change action to tier2, reason="no_kb_match". Questions with no KB match stay tier1.
+5. **First response** — if `KBMatch`: `FirstResponseGenerator.generate(...)` → `FirstResponse`; set on result.
+
+`OrchestratorResult` gains three new optional fields: `diagnostics_result`, `first_response`, `follow_up_questions`.
+
+---
+
+## 14. Data Flow
 
 ```
 Inbound event (JIRA / Slack / WhatsApp)
-  └─► Channel Adapter (normalize)                                           Phase 2
-        └─► Security Guards (signature, replay, injection)                  Phase 2
-              └─► Identity Resolver (verify contact, resolve tenant)        Phase 2
+  └─► Channel Adapter (normalize)                                           Phase 2 ✓
+        └─► Security Guards (signature, replay, injection)                  Phase 2 ✓
+              └─► Identity Resolver (verify contact, resolve tenant)        Phase 2 ✓
                     └─► Classifier (category, severity, component)          Phase 3 ✓
                           └─► Orchestrator                                  Phase 3 ✓
                                 ├─► Ticket Manager (create ticket)          Phase 3 ✓
-                                ├─► Diagnostics Collector                   Phase 4
-                                ├─► Knowledge Retriever                     Phase 4
-                                ├─► First Response Generator ──► Comms Policy ──► Customer   Phase 4–5
+                                ├─► Diagnostics Collector                   Phase 4 ✓
+                                ├─► Knowledge Retriever                     Phase 4 ✓
+                                ├─► First Response Generator                Phase 4 ✓
+                                │       └─► Comms Policy ──► Customer       Phase 5
                                 ├─► SLA Tracker                             Phase 5
                                 └─► Escalation Engine ──► On-call contacts  Phase 5
 ```
