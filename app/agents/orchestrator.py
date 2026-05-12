@@ -15,6 +15,7 @@ from app.agents.classifier import (
 from app.agents.diagnostics_collector import DiagnosticsCollector, DiagnosticsResult
 from app.agents.escalation_engine import EscalationEngine, EscalationResult
 from app.agents.first_response_generator import FirstResponse, FirstResponseGenerator
+from app.agents.handoff_builder import HandoffBuilder, HandoffPacket
 from app.agents.knowledge_retriever import KnowledgeRetriever, NoMatchResult
 from app.agents.sla_tracker import SLAStatus, SLATracker
 from app.config.models import AppConfig
@@ -48,11 +49,13 @@ class OrchestratorResult:
     sla_status: Optional[SLAStatus] = None
     escalation_result: Optional[EscalationResult] = None
     comm_decision: Optional[CommDecision] = None
+    # Phase 6 addition — present when action=="tier2".
+    handoff_packet: Optional[HandoffPacket] = None
 
 
 class SupportOrchestrator:
     """
-    Phase 5 orchestrator.
+    Phase 6 orchestrator.
 
     Phase 4 responsibilities (unchanged):
       - Classify the inbound event.
@@ -69,8 +72,8 @@ class SupportOrchestrator:
       - Detect SLA breach and invoke escalation engine.
       - Apply communication policy before simulated customer-facing updates.
 
-    NOT implemented (deferred to later phases):
-      - Human handoff packet builder (Phase 6)
+    Phase 6 additions (private attributes, never exposed as class-level names):
+      - Build a structured HandoffPacket whenever action=="tier2".
     """
 
     def __init__(
@@ -105,6 +108,9 @@ class SupportOrchestrator:
         )
         self._communication_policy = CommunicationPolicy(config=config, clock=_clock)
 
+        # Phase 6 agent (private instance attribute).
+        self._handoff_builder = HandoffBuilder()
+
     def process(self, event: InboundEvent) -> OrchestratorResult:
         classification = self._classifier.classify(event)
 
@@ -131,6 +137,7 @@ class SupportOrchestrator:
         sla_status: Optional[SLAStatus] = None
         escalation_result: Optional[EscalationResult] = None
         comm_decision: Optional[CommDecision] = None
+        handoff_packet: Optional[HandoffPacket] = None
 
         if action == "tier1" and classification.category in _TICKET_CATEGORIES:
             ticket = self._ticket_manager.create_for_event(event, classification)
@@ -196,6 +203,22 @@ class SupportOrchestrator:
             },
         )
 
+        # Phase 6: build handoff packet for every Tier 2 routing outcome.
+        if action == "tier2":
+            handoff_packet = self._handoff_builder.build(
+                event,
+                action=action,
+                reason=reason,
+                classification=classification,
+                ticket_id=ticket_id,
+                diagnostics_result=diagnostics_result,
+                first_response=first_response,
+                follow_up_questions=follow_up_questions,
+                sla_status=sla_status,
+                escalation_result=escalation_result,
+                comm_decision=comm_decision,
+            )
+
         return OrchestratorResult(
             action=action,
             reason=reason,
@@ -207,6 +230,7 @@ class SupportOrchestrator:
             sla_status=sla_status,
             escalation_result=escalation_result,
             comm_decision=comm_decision,
+            handoff_packet=handoff_packet,
         )
 
     def _route(

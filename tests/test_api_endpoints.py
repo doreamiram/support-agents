@@ -68,10 +68,82 @@ class TestDemoAdvanceTime:
         assert response.status_code == 200
 
 
-# ── Phase 6 not yet implemented ───────────────────────────────────────────────
+# ── Phase 6: /audit/verify endpoint ──────────────────────────────────────────
+# These tests use the `client` fixture from conftest.py, which injects an
+# in-memory SQLite database so each test has a clean, isolated audit chain.
 
-class TestPhase6NotImplemented:
-    def test_audit_verify_endpoint_not_implemented(self):
-        """Phase 6: /audit/verify does not exist yet."""
+class TestAuditVerify:
+    def test_audit_verify_returns_200_with_tenant_id(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        assert response.status_code == 200
+
+    def test_audit_verify_returns_200_without_tenant_id(self, client):
         response = client.get("/audit/verify")
-        assert response.status_code == 404
+        assert response.status_code == 200
+
+    def test_audit_verify_response_has_valid_field(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        assert "valid" in response.json()
+
+    def test_audit_verify_response_has_event_count(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        assert "event_count" in response.json()
+
+    def test_audit_verify_response_has_chain_breaks(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        assert "chain_breaks" in response.json()
+
+    def test_audit_verify_response_has_tenants_verified(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        assert "tenants_verified" in response.json()
+
+    def test_audit_verify_empty_chain_is_valid(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        body = response.json()
+        assert body["valid"] is True
+        assert body["event_count"] == 0
+
+    def test_audit_verify_no_tenant_id_verifies_multiple_tenants(self, client):
+        response = client.get("/audit/verify")
+        body = response.json()
+        assert isinstance(body["tenants_verified"], list)
+        assert len(body["tenants_verified"]) >= 1
+
+    def test_audit_verify_does_not_expose_payload_content(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        body = response.json()
+        # The response must not contain raw audit payload fields.
+        assert "payload_json" not in str(body)
+        assert "payload_json" not in body
+
+    def test_audit_verify_valid_field_is_bool(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        body = response.json()
+        assert isinstance(body["valid"], bool)
+
+    def test_audit_verify_event_count_is_int(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        body = response.json()
+        assert isinstance(body["event_count"], int)
+
+    def test_audit_verify_chain_breaks_is_list(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        body = response.json()
+        assert isinstance(body["chain_breaks"], list)
+
+    def test_audit_verify_tenants_verified_contains_requested_tenant(self, client):
+        response = client.get("/audit/verify?tenant_id=acme-corp")
+        body = response.json()
+        assert "acme-corp" in body["tenants_verified"]
+
+
+# ── Phase 7 not yet implemented ───────────────────────────────────────────────
+
+class TestPhase7NotImplemented:
+    def test_demo_scenarios_file_not_present(self):
+        """Phase 7: demo/scenarios.py must not exist yet."""
+        from pathlib import Path
+        scenarios = Path(__file__).parent.parent / "demo" / "scenarios.py"
+        assert not scenarios.exists(), (
+            "demo/scenarios.py exists — Phase 7 has been implemented prematurely"
+        )

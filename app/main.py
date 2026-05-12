@@ -1,10 +1,13 @@
 import os
 from contextlib import asynccontextmanager
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from sqlalchemy.orm import Session
 
 from app.config.loader import ConfigLoadError, load_config
-from app.db.database import init_db
+from app.db.database import get_db, init_db
+from app.services.audit_logger import AuditLogger
 from app.utils.clock import FakeClock
 
 # Module-level demo clock — advances deterministically via POST /demo/advance-time.
@@ -67,4 +70,54 @@ def demo_advance_time(minutes: int = 0, hours: int = 0) -> dict:
         "now": _demo_clock.now().isoformat(),
         "advanced_minutes": minutes,
         "advanced_hours": hours,
+    }
+
+
+# ── Audit endpoint ────────────────────────────────────────────────────────────
+
+@app.get("/audit/verify", tags=["audit"])
+def audit_verify(
+    request: Request,
+    tenant_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Verify the tamper-evident audit chain.
+
+    When tenant_id is supplied, verifies only that tenant's chain.
+    When omitted, verifies all tenants known in config.
+
+    Returns a JSON summary: valid, event_count, chain_breaks.
+    Sensitive audit payload content is never included in the response.
+    """
+    logger = AuditLogger(db)
+    config = request.app.state.config
+
+    if tenant_id is not None:
+        result = logger.verify_chain(tenant_id=tenant_id)
+        return {
+            "valid": result.valid,
+            "event_count": result.event_count,
+            "chain_breaks": result.chain_breaks,
+            "tenants_verified": [tenant_id],
+        }
+
+    # Verify all tenants from config.
+    tenant_ids = [t.id for t in config.tenants.tenants]
+    all_valid = True
+    total_events = 0
+    all_breaks: list[str] = []
+
+    for tid in tenant_ids:
+        result = logger.verify_chain(tenant_id=tid)
+        total_events += result.event_count
+        if not result.valid:
+            all_valid = False
+            all_breaks.extend(result.chain_breaks)
+
+    return {
+        "valid": all_valid,
+        "event_count": total_events,
+        "chain_breaks": all_breaks,
+        "tenants_verified": tenant_ids,
     }

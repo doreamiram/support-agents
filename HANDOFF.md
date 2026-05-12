@@ -1,14 +1,14 @@
 # Modelyo Support Agents — Handoff Document
 
 **Generated:** 2026-05-11  
-**Last updated:** 2026-05-11 (Phase 5 complete)  
-**Status:** Phase 5 complete — 382/382 tests passing
+**Last updated:** 2026-05-12 (Phase 6 complete)  
+**Status:** Phase 6 complete — 458/458 tests passing
 
 ---
 
 ## 1. Current Project Status
 
-Phase 5 is **complete**. All 382 tests pass (297 Phase 1–4 + 85 Phase 5). All documentation updated.
+Phase 6 is **complete**. All 458 tests pass (382 Phase 1–5 + 76 Phase 6). All documentation updated.
 
 ---
 
@@ -22,19 +22,43 @@ Phase 5 is **complete**. All 382 tests pass (297 Phase 1–4 + 85 Phase 5). All 
 | 2 | Channel adapters, identity resolution, security guards | 152 total | ✅ Complete |
 | 3 | Interaction classifier, support orchestrator, Tier 1/2 routing, ticket creation | 214 total | ✅ Complete |
 | 4 | Diagnostics collector, knowledge retriever, first response generator | 297 total | ✅ Complete |
-| **5** | **SLA tracker, FakeClock, escalation engine, communication policy, demo endpoint** | **382 total** | **✅ Complete** |
+| 5 | SLA tracker, FakeClock, escalation engine, communication policy, demo endpoint | 382 total | ✅ Complete |
+| **6** | **Handoff builder, audit logger service, /audit/verify endpoint, orchestrator extension** | **458 total** | **✅ Complete** |
 
 ---
 
-## 3. Phase 5 Status
+## 3. Phase 6 Status
 
-**Approved scope:** SLA tracker, ClockProvider/FakeClock, escalation engine, communication policy, demo time-advance endpoint, orchestrator extension.
+**Approved scope:** Handoff builder, audit logger service wrapper, `/audit/verify` endpoint, orchestrator extension for structured handoff packets.
 
-**Code status:** All files written and tested. 382/382 tests passing. All documentation updated.
+**Code status:** All files written and tested. 458/458 tests passing. All documentation updated.
 
 ---
 
-## 4. Files Created and Modified in Phase 5
+## 4. Files Created and Modified in Phase 6
+
+### New files
+| File | Purpose |
+|---|---|
+| `app/agents/handoff_builder.py` | `HandoffPacket` dataclass + `HandoffBuilder`; builds structured context packet for Tier 2 / human review; CONFIDENTIAL/RESTRICTED fields excluded |
+| `app/services/audit_logger.py` | `AuditLogger` service wrapper around `AuditRepository`; `VerificationResult` dataclass; exposes `append()`, `list_events()`, `verify_chain()` |
+| `tests/test_handoff_builder.py` | 40 tests covering all required fields, data classification safety, suggested_next_action, handoff reason scenarios, attempted steps |
+| `tests/test_audit_logger.py` | 24 tests covering append, list_events, verify_chain, tampering detection, payload non-exposure |
+
+### Modified files
+| File | Change |
+|---|---|
+| `app/agents/orchestrator.py` | Added `HandoffBuilder` import; `handoff_packet: Optional[HandoffPacket]` on `OrchestratorResult`; `_handoff_builder` private instance attribute; handoff built for all Tier 2 outcomes |
+| `app/main.py` | Added `GET /audit/verify` endpoint; accepts optional `tenant_id`; verifies single tenant or all configured tenants; no payload content exposed |
+| `tests/test_api_endpoints.py` | Replaced `TestPhase6NotImplemented` with `TestAuditVerify` (13 tests); added `TestPhase7NotImplemented` (1 test) |
+| `tests/test_orchestrator.py` | Replaced `TestPhase6NotImplemented` with `TestPhase6HandoffIntegration` (10 tests) + `TestPhase7NotImplemented` (1 test); added `HandoffPacket` import |
+| `docs/design_document.md` | Phase header updated to 6; §13c added (handoff builder, audit logger, /audit/verify design); data flow diagram updated; PRD coverage table updated |
+| `docs/requirements_traceability.md` | F-22, O-05, O-06, S-08 marked Done |
+| `HANDOFF.md` | This file |
+
+---
+
+## 4b. Files Created and Modified in Phase 5
 
 ### New files
 | File | Purpose |
@@ -61,7 +85,29 @@ Phase 5 is **complete**. All 382 tests pass (297 Phase 1–4 + 85 Phase 5). All 
 
 ---
 
-## 5. Tests Created in Phase 5
+## 5. Tests Created in Phase 6
+
+### `tests/test_handoff_builder.py` (40 tests)
+- `TestHandoffPacketFields` (13): all required fields present (tenant_id, ticket_id, handoff_reason, channel, contact_id, customer_goal, classification fields, routing fields, attempted_steps, diagnostics_summary, suggested_next_action, created_at); packet is HandoffPacket instance
+- `TestHandoffDataClassification` (5): ip_address (CONFIDENTIAL) excluded from diagnostics_summary; RESTRICTED fields excluded; PUBLIC channel field included; INTERNAL severity included; CONFIDENTIAL value not in any top-level string field
+- `TestSuggestedNextAction` (5): low_confidence mentions contact; injection_flagged mentions injection; customer_requested_human mentions contact; no_kb_match mentions KB/runbook; suggested action non-empty for all reasons
+- `TestHandoffReasonScenarios` (7): low_confidence packet correct; customer_requested_human packet correct; no_kb_match packet with KB and step coverage; injection_flagged packet correct; SLA fields present when SLA status given; SLA fields None when not available
+- `TestAttemptedSteps` (2): early Tier 2 has only classification step; no_kb_match has diagnostics + KB + SLA steps
+
+### `tests/test_audit_logger.py` (24 tests)
+- `TestAuditLoggerAppend` (6): returns AuditEvent; stores event_type, tenant_id, actor; delegates to repository; multiple appends ordered
+- `TestAuditLoggerListEvents` (3): empty for unknown tenant; only tenant events returned; insertion order preserved
+- `TestAuditLoggerVerifyChain` (11): empty chain valid; event_count zero; no breaks; single event valid; multiple events valid; count matches appended; result has message; result is dataclass; tampering detected; chain_breaks contain description on tampering; result does not expose payload content; different tenants independent
+
+### Updates to `tests/test_api_endpoints.py` (+13 net tests, -1 removed)
+- `TestAuditVerify` (13): returns 200 with and without tenant_id; response has valid, event_count, chain_breaks, tenants_verified fields; empty chain is valid (event_count=0); no-tenant_id verifies multiple; payload_json not in response; valid is bool; event_count is int; chain_breaks is list; tenants_verified contains requested tenant
+- `TestPhase7NotImplemented` (1): demo/scenarios.py not present
+
+### Updates to `tests/test_orchestrator.py` (+11 net tests, -1 removed)
+- `TestPhase6HandoffIntegration` (10): low_confidence has HandoffPacket; customer_requested_human has HandoffPacket; injection_flagged has HandoffPacket; no_kb_match has HandoffPacket; Tier 1 has no HandoffPacket; packet has all required fields; customer_goal matches subject; routing_action is tier2; result has handoff_packet attribute; question Tier 1 result handoff_packet is None
+- `TestPhase7NotImplemented` (1): demo/scenarios.py not present
+
+## 5b. Tests Created in Phase 5
 
 ### `tests/test_clock.py` (17 tests)
 - `TestClockProviderInterface` (3): SystemClock and FakeClock are instances of ClockProvider; `now()` is callable
@@ -106,11 +152,31 @@ Phase 5 is **complete**. All 382 tests pass (297 Phase 1–4 + 85 Phase 5). All 
 | 2 | ~76 new | ✅ 152/152 passed |
 | 3 | 62 new | ✅ 214/214 passed |
 | 4 | 83 new | ✅ 297/297 passed |
-| **5** | **85 new** | **✅ 382/382 passed** |
+| 5 | 85 new | ✅ 382/382 passed |
+| **6** | **76 new** | **✅ 458/458 passed** |
 
 ---
 
-## 7. Important Architecture Decisions (Phase 5 additions)
+## 7. Important Architecture Decisions (Phase 6 additions)
+
+### HandoffPacket built after all processing, not at first Tier 2 decision
+The handoff packet is built at the END of `process()` after the final `action` value is known. This means a Tier 1 event that later becomes Tier 2 (e.g., `no_kb_match` after diagnostics/KB retrieval) still gets a fully populated packet including diagnostics, KB outcome, and SLA state.
+
+### CONFIDENTIAL/RESTRICTED exclusion is enforced at the builder layer, not the orchestrator
+`HandoffBuilder._SAFE_CLASSIFICATIONS` is a frozenset containing only `PUBLIC` and `INTERNAL`. The builder iterates `DiagnosticsResult.fields` and skips any field whose `.classification` is not in this set. This makes the exclusion rule explicit and independently testable.
+
+### AuditLogger does not own its own DB session
+`AuditLogger.__init__` accepts an injected `Session` (same as `AuditRepository`). This keeps the service stateless and allows it to participate in the same transaction as other repository operations without requiring a separate connection.
+
+### /audit/verify never returns payload content
+The endpoint returns only: `valid`, `event_count`, `chain_breaks`, `tenants_verified`. The `chain_breaks` list contains only positional/structural descriptions (e.g. "Chain break at position 2 — hash mismatch"), not payload values. Raw `AuditEvent.payload_json` content is never included in the HTTP response.
+
+### Phase 7 guard tests present in both test files
+Both `tests/test_orchestrator.py` and `tests/test_api_endpoints.py` include a `TestPhase7NotImplemented` class checking that `demo/scenarios.py` does not exist. This ensures Phase 7 scope creep is caught by the test suite.
+
+---
+
+## 7b. Important Architecture Decisions (Phase 5 additions)
 
 ### ClockProvider abstraction
 All time operations in Phase 5 code go through the injected `ClockProvider`. Neither `SLATracker`, `EscalationEngine`, nor `CommunicationPolicy` call `datetime.utcnow()` or `datetime.now()` directly. This makes all SLA breach tests deterministic (no real-time waiting) and enables demo time travel without any actual sleeping.
@@ -146,7 +212,17 @@ The module-level `_demo_clock` in `app/main.py` is a display-only FakeClock for 
 
 ---
 
-## 9. PRD Alignment (Phase 5)
+## 9. PRD Alignment (Phase 6)
+
+Phase 6 satisfies:
+- **FR-24** (structured context packet: customer goal, attempts, diagnostics, SLA state, suggested next action): `HandoffBuilder` + `HandoffPacket`
+- **FR-25** (handoff at any workflow point: low-confidence, injection flagged, customer request, no KB match, unknown category): all Tier 2 routing outcomes trigger handoff
+- **NFR-03, NFR-04** (confidentiality, data classification): CONFIDENTIAL/RESTRICTED fields excluded from `HandoffPacket.diagnostics_summary`
+- **NFR-05, NFR-06** (audit trail tamper-evident + API-accessible): `AuditLogger.verify_chain()` + `GET /audit/verify`
+
+---
+
+## 9b. PRD Alignment (Phase 5)
 
 Phase 5 satisfies:
 - **FR-15** (engineer notification): simulated via EscalationEngine
@@ -162,16 +238,16 @@ Phase 5 satisfies:
 
 ## 10. Exact Next Recommended Step
 
-**Phase 6 — Handoff Builder, Audit Logger Service:**
+**Phase 7 — Demo Scenarios, Full Test Suite, Final Docs:**
 
 Verify baseline first:
 ```powershell
 cd c:\modelyo-support-agents
-.\.venv\Scripts\pytest.exe -v
+.\.venv\Scripts\pytest.exe -q
 ```
 
-Expected: 382/382 still pass. Then implement Phase 6 (approved separately):
-- `app/agents/handoff_builder.py` (structured handoff packet: customer goal, attempts, diagnostics, SLA state, suggested next action)
-- `app/services/audit_logger.py` (service wrapper around `AuditRepository`; exposes `/audit/verify` endpoint)
-- Tests for both
-- Orchestrator extended for handoff
+Expected: 458/458 still pass. Then implement Phase 7 (requires separate approval):
+- `demo/scenarios.py` — end-to-end demo scenario runner
+- Wire `_demo_clock` in `app/main.py` to orchestrator instances for time-travel demo
+- Operational telemetry (O-08, Q-01, Q-02)
+- Final docs and evaluation framework

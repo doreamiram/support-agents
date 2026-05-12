@@ -1,6 +1,6 @@
 # Modelyo Support Agents — Design Document
 
-> **Phase:** 5 (SLA tracker, FakeClock, escalation engine, communication policy, demo time-advance endpoint). This document is updated after each implementation phase.
+> **Phase:** 6 (Handoff builder, audit logger service, /audit/verify endpoint, orchestrator extension). This document is updated after each implementation phase.
 
 ---
 
@@ -27,8 +27,8 @@ The system is organized into 14 discrete responsibilities:
 | 9 | SLA Tracker | Time-aware state machine; breach detection via ClockProvider |
 | 10 | Escalation Engine | Configurable on-call chain; quiet hours; critical override |
 | 11 | Communication Policy | Gate outbound messages to meaningful state changes only |
-| 12 | Human Handoff Builder | Structured packet for Tier 2 engineers |
-| 13 | Audit Logger | Tamper-evident hash-chained audit trail in SQLite |
+| 12 | Human Handoff Builder | Structured packet for Tier 2 engineers; CONFIDENTIAL/RESTRICTED fields excluded |
+| 13 | Audit Logger | Service wrapper + tamper-evident hash-chained audit trail in SQLite |
 | 14 | Config Loader | Load and validate all YAML config at startup |
 
 ---
@@ -89,7 +89,7 @@ See §13b for the complete Phase 5 design.
 | 3 | Classifier, orchestrator, Tier 1/2 routing |
 | 4 | Diagnostics, knowledge retrieval, first response |
 | 5 | SLA tracker, FakeClock, escalation, communication policy |
-| 6 | Handoff builder, full audit chain |
+| **6** | **Handoff builder, audit logger service, /audit/verify endpoint** |
 | 7 | Demo scenarios, full test suite, final docs |
 
 ---
@@ -511,6 +511,117 @@ In `process()`, for Tier 1 incident events:
 
 ---
 
+---
+
+## 13c. Handoff Builder, Audit Logger Service, and Audit Verify Endpoint (Phase 6)
+
+### Human Handoff Builder
+
+`HandoffBuilder` (`app/agents/handoff_builder.py`) produces a `HandoffPacket` whenever the orchestrator routes to Tier 2. The packet is deterministic: same inputs always produce the same output.
+
+**HandoffPacket fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `tenant_id` | str | Owning tenant |
+| `ticket_id` | str or None | Ticket ID if created before handoff |
+| `handoff_reason` | str | Why handoff was triggered |
+| `channel`, `contact_id`, `external_id` | str | Contact/channel info from InboundEvent |
+| `customer_goal` | str | Original event subject |
+| `category`, `severity`, `component` | str | Classification output |
+| `confidence_score` | float | Classifier confidence (0.0–1.0) |
+| `classification_reasoning` | str | Human-readable classifier explanation |
+| `routing_action`, `routing_reason` | str | Final routing decision |
+| `attempted_steps` | list[str] | Ordered list of automation steps that ran |
+| `diagnostics_summary` | dict[str, str] | PUBLIC + INTERNAL fields only |
+| `missing_diagnostics_fields` | list[str] | Fields still required from the customer |
+| `follow_up_questions` | list[str] | Customer-facing questions for missing fields |
+| `kb_article_id`, `kb_article_title` | str or None | KB article used (if any) |
+| `kb_no_match_reason` | str or None | Why KB was skipped or missed |
+| `first_response_status` | str | "sent" \| "suppressed" \| "not_generated" |
+| `sla_state`, `sla_response_deadline`, etc. | varies | SLA summary (no raw DB records) |
+| `escalation_chain_found` | bool or None | Whether an escalation chain was found |
+| `escalation_actions_count` | int or None | Number of simulated escalation steps |
+| `suggested_next_action` | str | Actionable guidance for the human engineer |
+| `created_at` | str | UTC ISO-8601 timestamp |
+
+**Data classification safety**
+
+`CONFIDENTIAL` and `RESTRICTED` diagnostic fields (e.g. `ip_address`) are excluded from `diagnostics_summary`. Only `PUBLIC` and `INTERNAL` fields are included. No sensitive values appear in any top-level string field. The packet is never sent externally.
+
+**Handoff trigger conditions**
+
+| Reason | Trigger |
+|---|---|
+| `low_confidence` | Classifier confidence below threshold |
+| `injection_flagged` | Injection guard flagged the inbound message |
+| `customer_requested_human` | Explicit human-agent request detected |
+| `no_kb_match` | No KB article met the confidence threshold |
+| `unknown_category` | Category outside expected set |
+
+**Suggested next action**
+
+`HandoffBuilder._suggest_next_action()` returns a specific, actionable string per reason code. For `low_confidence`: classify manually and assign. For `injection_flagged`: review for prompt injection. For `customer_requested_human`: contact the customer directly. For `no_kb_match`: investigate and create a runbook entry. For SLA breach: immediate response required.
+
+### Audit Logger Service
+
+`AuditLogger` (`app/services/audit_logger.py`) is a thin, testable wrapper around the Phase 1C `AuditRepository`. It does not replace the repository — it delegates all storage operations to it.
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `append(tenant_id, event_type, actor, payload)` | Write a new audit event. Delegates to `AuditRepository.append()`. |
+| `list_events(tenant_id)` | Return events in insertion order. Delegates to `AuditRepository.list_by_tenant()`. |
+| `verify_chain(tenant_id)` | Verify the tamper-evident hash chain. Returns `VerificationResult`. |
+
+**VerificationResult fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `valid` | bool | True when every event's hash matches the previous |
+| `event_count` | int | Number of events examined |
+| `message` | str | Human-readable summary from the repository |
+| `chain_breaks` | list[str] | Empty when valid; one entry per break detected |
+
+Sensitive audit payload content is never exposed in `VerificationResult`.
+
+### /audit/verify Endpoint
+
+`GET /audit/verify` (`app/main.py`) verifies the audit chain via `AuditLogger`.
+
+**Parameters**
+
+- `tenant_id` (optional query param): If provided, verifies only that tenant's chain. If omitted, verifies all tenants from config.
+
+**Response**
+
+```json
+{
+  "valid": true,
+  "event_count": 15,
+  "chain_breaks": [],
+  "tenants_verified": ["acme-corp", "vertex-systems"]
+}
+```
+
+- `valid`: `false` when any chain break is detected.
+- `chain_breaks`: Contains break descriptions when `valid=false`.
+- Raw audit payload content is never included in the response.
+
+### Orchestrator Phase 6 Extension
+
+`SupportOrchestrator.__init__` now creates a private `_handoff_builder: HandoffBuilder()` instance attribute.
+
+In `process()`, after the routing decision and all Phase 4/5 processing are complete:
+- If `action == "tier2"` (for any reason), `_handoff_builder.build()` is called.
+- The resulting `HandoffPacket` is stored on `OrchestratorResult.handoff_packet`.
+- For Tier 1 outcomes, `handoff_packet` is `None`.
+
+`OrchestratorResult` gains one new field: `handoff_packet: Optional[HandoffPacket] = None`.
+
+---
+
 ## 14. Data Flow
 
 ```
@@ -526,7 +637,9 @@ Inbound event (JIRA / Slack / WhatsApp)
                                 ├─► Knowledge Retriever                     Phase 4 ✓
                                 ├─► Communication Policy (gate response)    Phase 5 ✓
                                 ├─► First Response Generator ──► Customer   Phase 4 ✓
-                                └─► Escalation Engine ──► On-call (sim.)   Phase 5 ✓
+                                ├─► Escalation Engine ──► On-call (sim.)   Phase 5 ✓
+                                └─► Handoff Builder ──► HandoffPacket       Phase 6 ✓
+                                      (Tier 2 results only; never sent externally)
 ```
 
 ---
@@ -544,8 +657,8 @@ Inbound event (JIRA / Slack / WhatsApp)
 | 2 | FR-01–FR-04 (channel intake, identity verification), NFR-08 (signature + replay), NFR-09 (injection guard), NFR-10 (secret redaction), IR-05–IR-07 |
 | 3 | FR-05 (classify interactions; low-confidence → Tier 2) |
 | 4 | FR-08, FR-09, FR-11 (diagnostics collection; no infra commands), FR-12, FR-13, FR-14 (first response grounded in KB; fallback), FR-26, FR-27, FR-28 (KB retrieval; live signals excluded; tenant boundaries), NFR-13 (graceful degradation via fallback route) |
-| 5 | FR-15, FR-17 (engineer notification, notified-vs-engaged state), FR-16 (SLA timer, ClockProvider/FakeClock), FR-18 (escalation on breach), FR-19, FR-20 (configurable chain, escalation audit), FR-21–FR-23 (communication policy, quiet hours, cooldown, critical override) | ✓ |
-| 6 | FR-24, FR-25 (human handoff packet, handoff at any workflow point) |
+| 5 | FR-15, FR-17 (engineer notification, notified-vs-engaged state), FR-16 (SLA timer, ClockProvider/FakeClock), FR-18 (escalation on breach), FR-19, FR-20 (configurable chain, escalation audit), FR-21–FR-23 (communication policy, quiet hours, cooldown, critical override) |
+| **6** | **FR-24, FR-25 (human handoff packet, handoff at any workflow point); NFR-05, NFR-06 (audit logger service + /audit/verify API)** |
 | 7 | NFR-07, NFR-14, NFR-15 (telemetry, evaluation framework, regression gating) |
 
 ### PRD Requirements Not Covered by This Prototype
