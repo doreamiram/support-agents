@@ -83,9 +83,9 @@
 | O-05 | O | Audit logger service (app/services/audit_logger.py) wraps the Phase 1C repository layer and exposes a /audit/verify API endpoint (NFR-05, NFR-06 — Phase 6 service wrapper) | 6 | app/services/audit_logger.py, app/main.py | tests/test_audit_logger.py, tests/test_api_endpoints.py::TestAuditVerify | Done |
 | O-06 | O | /audit/verify endpoint detects tampered audit records and reports the first chain break (NFR-06 — Phase 6 API surface) | 6 | app/services/audit_logger.py, app/main.py | tests/test_audit_logger.py::test_verify_detects_tampering | Done |
 | O-07 | O | System degrades gracefully when KB is unavailable or returns no match: falls back to human-review route and never fails silently (NFR-13) | 4 | app/agents/first_response_generator.py, app/agents/knowledge_retriever.py | tests/test_first_response_generator.py, tests/test_orchestrator.py | Done |
-| O-08 | O | Operational telemetry captured in demo/evaluation layer: classification accuracy, response groundedness, escalation correctness, SLA breach rates (NFR-07, NFR-14) | 7 | demo/scenarios.py | tests/ | Not started |
-| Q-01 | Q | All 5 required demo scenarios pass end-to-end (NFR-15) | 7 | demo/scenarios.py | tests/ | Not started |
-| Q-02 | Q | pytest suite covers all core behaviors with no skipped tests (NFR-15) | 7 | tests/ | — | Not started |
+| O-08 | O | Operational telemetry captured in demo/evaluation layer: classification accuracy, response groundedness, escalation correctness, SLA breach rates (NFR-07, NFR-14) | 7 | app/services/telemetry.py, demo/scenarios.py | tests/test_telemetry.py, tests/test_demo_scenarios.py | Done |
+| Q-01 | Q | All 5 required demo scenarios pass end-to-end (NFR-15) | 7 | demo/scenarios.py | tests/test_demo_scenarios.py::TestScenarioResults::test_all_scenarios_pass | Done |
+| Q-02 | Q | pytest suite covers all core behaviors with no skipped tests (NFR-15) | 7 | tests/ | — 512/512 passing, 0 skipped | Done |
 
 ---
 

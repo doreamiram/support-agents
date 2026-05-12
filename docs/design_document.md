@@ -1,6 +1,6 @@
 # Modelyo Support Agents — Design Document
 
-> **Phase:** 6 (Handoff builder, audit logger service, /audit/verify endpoint, orchestrator extension). This document is updated after each implementation phase.
+> **Phase:** 7 (Demo scenarios, telemetry service, evaluation framework, final documentation). This document is updated after each implementation phase.
 
 ---
 
@@ -89,8 +89,8 @@ See §13b for the complete Phase 5 design.
 | 3 | Classifier, orchestrator, Tier 1/2 routing |
 | 4 | Diagnostics, knowledge retrieval, first response |
 | 5 | SLA tracker, FakeClock, escalation, communication policy |
-| **6** | **Handoff builder, audit logger service, /audit/verify endpoint** |
-| 7 | Demo scenarios, full test suite, final docs |
+| 6 | Handoff builder, audit logger service, /audit/verify endpoint |
+| **7** | **Demo scenarios, telemetry service, evaluation framework, final documentation** |
 
 ---
 
@@ -658,8 +658,8 @@ Inbound event (JIRA / Slack / WhatsApp)
 | 3 | FR-05 (classify interactions; low-confidence → Tier 2) |
 | 4 | FR-08, FR-09, FR-11 (diagnostics collection; no infra commands), FR-12, FR-13, FR-14 (first response grounded in KB; fallback), FR-26, FR-27, FR-28 (KB retrieval; live signals excluded; tenant boundaries), NFR-13 (graceful degradation via fallback route) |
 | 5 | FR-15, FR-17 (engineer notification, notified-vs-engaged state), FR-16 (SLA timer, ClockProvider/FakeClock), FR-18 (escalation on breach), FR-19, FR-20 (configurable chain, escalation audit), FR-21–FR-23 (communication policy, quiet hours, cooldown, critical override) |
-| **6** | **FR-24, FR-25 (human handoff packet, handoff at any workflow point); NFR-05, NFR-06 (audit logger service + /audit/verify API)** |
-| 7 | NFR-07, NFR-14, NFR-15 (telemetry, evaluation framework, regression gating) |
+| 6 | FR-24, FR-25 (human handoff packet, handoff at any workflow point); NFR-05, NFR-06 (audit logger service + /audit/verify API) |
+| **7** | **NFR-07, NFR-14, NFR-15 (telemetry, demo scenarios, evaluation framework, regression gating)** |
 
 ### PRD Requirements Not Covered by This Prototype
 
@@ -689,3 +689,76 @@ The PRD lists 15 Architecture & Design Tasks (T-01 to T-15) and 7 Open Decisions
 - **T-12** (communication policy): `config/quiet_hours.yaml`
 
 Tasks T-02 (LLM hosting), T-04 (trust boundaries), T-09 (SLA timing model detail), T-11 (canonical state-change list), T-13 (knowledge freshness), T-14 (failure mode behaviors), and T-15 (evaluation framework and latency targets) are design decisions to be finalized before production deployment; their prototype equivalents are simplified stubs.
+
+---
+
+## 15. Demo Scenarios, Telemetry, and Evaluation Framework (Phase 7)
+
+### Demo Scenarios
+
+`demo/scenarios.py` provides five end-to-end scenarios runnable with:
+
+```powershell
+.\.venv\Scripts\python.exe -m demo.scenarios
+```
+
+| Scenario | What it exercises |
+|---|---|
+| 1. Tier 1 happy path | Storage incident → complete diagnostics → KB match → first response + SLA |
+| 2. Injection / Tier 2 | Injection-flagged message → immediate Tier 2 → HandoffPacket |
+| 3. No KB match | Network incident → complete diagnostics → KB miss → Tier 2 + HandoffPacket |
+| 4. SLA escalation | P1 incident → FakeClock.advance(20 min) → breach → simulated escalation chain |
+| 5. Audit verification | Auth incident → audit trail populated → AuditLogger.verify_chain() → valid |
+
+Each scenario uses:
+- In-memory SQLite (`sqlite:///:memory:`) — no file system side effects
+- `FakeClock` — no real time elapses; SLA breach is deterministic
+- No real external integrations — no Slack, JIRA, WhatsApp, or LLM calls
+
+`ScenarioResult` (dataclass) carries: `name`, `passed`, `summary`, `details`, `error`.
+
+`run_all_scenarios()` runs all five and returns a `list[ScenarioResult]`.
+
+### Telemetry Service
+
+`app/services/telemetry.py` provides a minimal in-memory telemetry collector
+satisfying NFR-07 (operational telemetry) and NFR-14 (measurable behaviour) at
+prototype scope.
+
+**Design constraints:**
+- No external telemetry provider, no network calls
+- Allowed event types are a closed `frozenset` — unknown types raise `ValueError`
+- Metadata is copied on record (immutable after the fact)
+- No raw payload content, no customer data in event names or metadata values
+- `summary()` returns per-event-type counts for quick operational assessment
+
+**Allowed event types:** `scenario_started`, `scenario_completed`,
+`tier1_response_generated`, `handoff_created`, `audit_verified`,
+`sla_breach_detected`, `escalation_triggered`, `scenario_error`.
+
+### Evaluation Framework
+
+`docs/evaluation_framework.md` provides a structured checklist covering:
+- PRD requirements coverage (FR, NFR, IR) with status per requirement
+- Functional test checklist with result per behaviour
+- Security controls checklist with test references
+- Test counts per phase (512 total, all passing)
+- Known prototype limitations with production mitigation notes
+- Suggested production next steps in priority order
+
+### Phase 7 Test Strategy
+
+`tests/test_demo_scenarios.py` (30 tests):
+- Import smoke test; no real LLM/Slack/JIRA in sys.modules
+- All five scenario functions present in `_SCENARIOS` registry
+- `run_all_scenarios()` returns 5 `ScenarioResult` objects, all `passed=True`
+- Determinism: two consecutive runs produce identical pass/fail outcomes
+- FakeClock verification: SLA scenario shows no breach at T=0, breach at T=+20
+- Documentation presence: README, demo_guide.md, evaluation_framework.md exist
+
+`tests/test_telemetry.py` (21 tests):
+- All 8 allowed event types recordable
+- Unknown event types raise `ValueError`
+- Metadata copied on record; `events()` returns a list copy
+- No `payload` or `customer_data` in any allowed event type name
+- `summary()` returns correct per-type counts

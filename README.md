@@ -1,94 +1,223 @@
 # Modelyo Support Agents
 
-Agentic Tier 1 / Tier 2 customer support system prototype for Modelyo Confidential Cloud enterprise customers.
+Agentic Tier 1 / Tier 2 customer support prototype for Modelyo Confidential Cloud
+enterprise customers.
 
-> **Status:** Phase 1A — minimal skeleton. See the implementation plan in `docs/design_document.md`.
+> **Status:** Phase 7 complete — 512/512 tests passing. See `docs/design_document.md`
+> for architecture details and `docs/demo_guide.md` to run the demo.
+
+---
+
+## What this project is
+
+This prototype implements an AI-agent system that automates Tier 1 and Tier 2
+customer support for Modelyo Confidential Cloud enterprise customers.  It handles
+support requests arriving via JIRA Service Desk, Slack, and WhatsApp, and routes
+them through a deterministic pipeline: intake → classify → diagnose → KB retrieval
+→ first response → SLA tracking → escalation → human handoff.
+
+## What problem it solves
+
+Modelyo support engineers currently triage, diagnose, and draft responses to
+every inbound request manually.  This prototype demonstrates how an agent system
+can:
+
+- Classify inbound messages and route to Tier 1 (automated) or Tier 2 (human)
+- Extract structured diagnostics without executing any commands on customer infrastructure
+- Generate grounded first responses referenced to internal KB articles
+- Track SLA timers with severity-based deadlines and breach detection
+- Escalate through a configurable on-call chain when SLA timers expire
+- Build a structured HandoffPacket for the human engineer when Tier 2 is needed
+- Maintain a tamper-evident per-tenant audit trail of every decision
+
+## Current scope and prototype boundaries
+
+This is a **functional prototype** — not a production deployment.  The following
+are simulated / stubbed:
+
+| What is simulated | Why |
+|---|---|
+| LLM responses | First Response Generator uses deterministic KB lookup + template |
+| JIRA ticket write | Tickets stored in in-memory / local SQLite only |
+| Slack outbound messages | No real Slack API calls |
+| WhatsApp outbound messages | No real WhatsApp Business API calls |
+| On-call notifications | Escalation engine returns `simulated=True` actions |
+| Knowledge freshness | Static KB markdown files; no live ingestion pipeline |
+
+What **is real**:
+
+- Full deterministic classification, diagnostics, and KB retrieval pipeline
+- Tamper-evident audit hash chain (SHA-256) in SQLite
+- SLA breach detection with configurable severity rules
+- Communication policy with quiet hours, cooldown, and P1 critical override
+- Data classification (PUBLIC / INTERNAL / CONFIDENTIAL / RESTRICTED) on all fields
+- Webhook signature verification (HMAC-SHA256) and replay protection
+- Prompt-injection guard and secret redaction
+
+---
+
+## Architecture overview
+
+```
+Inbound event (JIRA / Slack / WhatsApp webhook)
+  |
+  +-- Channel Adapter          normalize to InboundEvent
+  +-- Signature Verifier       HMAC-SHA256 per tenant secret
+  +-- Replay Guard             event_id dedup + timestamp window
+  +-- Identity Resolver        contact verified against config
+  +-- Injection Guard          pattern-scan; flags but does not reject
+  |
+  +-- Interaction Classifier   category / severity / component / confidence
+  |
+  +-- Support Orchestrator
+        +-- Ticket Manager     create tenant-scoped ticket
+        +-- SLA Tracker        initialize state machine, check breach
+        +-- Diagnostics        extract structured fields from event text
+        +-- Knowledge Retriever keyword + tag + component scoring
+        +-- Comm Policy        quiet hours / cooldown gate
+        +-- First Response Gen grounded response from KB article
+        +-- Escalation Engine  on-call chain; simulated actions
+        +-- Handoff Builder    structured packet for Tier 2 engineer
+        +-- Audit Logger       every decision written to hash chain
+```
+
+See `docs/design_document.md` for a detailed description of each component.
 
 ---
 
 ## Requirements
 
 - Python 3.12
-- pip
+- pip (for installing dependencies into a virtual environment)
 
 ---
 
-## Setup
+## Local setup
 
-```bash
+```powershell
 # 1. Clone or unzip the project
-cd modelyo-support-agents
+cd c:\modelyo-support-agents
 
-# 2. Create a virtual environment
+# 2. Create and activate a virtual environment
 python -m venv .venv
-
-# Windows (PowerShell)
 .\.venv\Scripts\Activate.ps1
-
-# macOS / Linux
-source .venv/bin/activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Copy environment config
-cp .env.example .env
-# Edit .env if needed (defaults are fine for local demo)
+# 4. Copy environment config (defaults work for local demo)
+copy .env.example .env
 ```
 
 ---
 
-## Run the API
+## Run the API server
 
-```bash
+```powershell
 uvicorn app.main:app --reload
 ```
-
-The API will be available at `http://127.0.0.1:8000`.
 
 Interactive docs: `http://127.0.0.1:8000/docs`
 
 ---
 
-## Test the health endpoint
+## Run tests
 
-```bash
-# Using curl
-curl http://127.0.0.1:8000/health
+```powershell
+# Full suite (512 tests)
+.\.venv\Scripts\pytest.exe
 
-# Expected response
-{"status":"ok","version":"0.1.0"}
+# Quiet summary
+.\.venv\Scripts\pytest.exe -q
+
+# Specific module
+.\.venv\Scripts\pytest.exe tests/test_demo_scenarios.py -v
 ```
 
 ---
 
-## Run tests
+## Run the demo
 
-```bash
-pytest
+The demo runs all five end-to-end scenarios deterministically using in-memory
+SQLite and FakeClock.  No real external integrations are needed.
+
+```powershell
+.\.venv\Scripts\python.exe -m demo.scenarios
 ```
+
+Expected output: five scenario blocks each showing `[PASS]`, followed by a
+`5/5 scenarios passed` summary.
+
+See `docs/demo_guide.md` for a detailed walkthrough of each scenario and how
+to present them to a reviewer.
+
+---
+
+## Key design choices
+
+- **Deterministic orchestration** — no LLM calls in the critical path; all
+  decisions are rule-based and reproducible.
+- **ClockProvider abstraction** — `FakeClock` enables SLA breach tests and demo
+  time-travel without real delays.
+- **Data classification on every field** — PUBLIC / INTERNAL / CONFIDENTIAL /
+  RESTRICTED; CONFIDENTIAL/RESTRICTED values never appear in responses or
+  HandoffPackets.
+- **Tamper-evident audit trail** — SHA-256 hash chain; `/audit/verify` endpoint
+  confirms integrity without exposing payload content.
+- **Fail-fast config** — all YAML validated at startup; bad config aborts before
+  the server accepts requests.
+
+---
+
+## Security and tenant-isolation notes
+
+- Every repository method requires `tenant_id`; cross-tenant access raises
+  `TenantAccessError`.
+- Webhook payloads are verified with HMAC-SHA256 before parsing.
+- Duplicate events are rejected via `event_id` deduplication.
+- Injection-flagged messages are quarantined to Tier 2; the original text is
+  preserved in `raw_payload` for audit only.
+- Credentials and secrets are redacted before any log sink or outbound message.
+
+---
+
+## What would be needed for production
+
+1. **Real LLM hosting** — evaluate managed vs. self-hosted against Modelyo's
+   confidential-computing posture (PRD T-02 / D-01).
+2. **JIRA Service Desk API** — ticket write, field update, comment threading.
+3. **Real channel outbound** — Slack Bot API, WhatsApp Business API (with
+   Meta-approved templates for out-of-session messages).
+4. **Live on-call integration** — PagerDuty / Opsgenie for acknowledgement
+   signals (FR-15 / IR-09, IR-10).
+5. **Knowledge ingestion pipeline** — freshness guarantees, re-indexing on
+   runbook updates (T-13).
+6. **Persistent SLA state** — deadline columns on `Ticket` rows for crash
+   recovery; current prototype holds deadlines in-memory.
+7. **Production DB** — replace SQLite with PostgreSQL with row-level security.
+8. **Secrets management** — rotate credentials from a vault; never held in
+   agent memory (NFR-11).
+9. **Latency budget** — agree and instrument per-channel response targets
+   (NFR-12 / T-15).
+10. **Evaluation harness** — labelled test corpus for classification accuracy
+    and response groundedness regression gating (NFR-14 / NFR-15).
 
 ---
 
 ## Project structure
 
 ```
-app/                    Application source
-docs/                   Design document and requirements traceability
-audit_logs/             Exported demo audit log examples (not the source of truth)
-config/                 YAML config files — tenants, SLA rules, escalation chains (Phase 1B+)
-tests/                  Test suite
-demo/                   Demo scenario scripts (Phase 7)
+app/                Application source
+  adapters/         JIRA, Slack, WhatsApp webhook handlers
+  agents/           Classifier, Orchestrator, SLA, Escalation, Handoff Builder
+  config/           Config loader + Pydantic models
+  db/               SQLAlchemy models, repositories, session management
+  schemas/          InboundEvent and webhook payload schemas
+  services/         Ticket Manager, Identity, Audit Logger, Telemetry, etc.
+  utils/            ClockProvider, redaction
+config/             YAML config files and KB markdown articles
+docs/               Design document, requirements traceability, demo guide
+demo/               End-to-end demo scenarios
+tests/              Full pytest suite (512 tests)
+audit_logs/         Exported demo audit log examples (reference only)
 ```
-
----
-
-## Demo scenarios
-
-> Added in Phase 7. See `demo/scenarios.py` and the demo section in `docs/design_document.md`.
-
----
-
-## Configuration
-
-> Added in Phase 1B. See `config/` and `docs/design_document.md`.

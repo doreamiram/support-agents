@@ -136,14 +136,3 @@ class TestAuditVerify:
         body = response.json()
         assert "acme-corp" in body["tenants_verified"]
 
-
-# ── Phase 7 not yet implemented ───────────────────────────────────────────────
-
-class TestPhase7NotImplemented:
-    def test_demo_scenarios_file_not_present(self):
-        """Phase 7: demo/scenarios.py must not exist yet."""
-        from pathlib import Path
-        scenarios = Path(__file__).parent.parent / "demo" / "scenarios.py"
-        assert not scenarios.exists(), (
-            "demo/scenarios.py exists — Phase 7 has been implemented prematurely"
-        )

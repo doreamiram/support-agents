@@ -638,13 +638,3 @@ class TestPhase6HandoffIntegration:
         assert result.action == "tier1"
         assert result.handoff_packet is None
 
-
-# ── Phase 7 not yet implemented ───────────────────────────────────────────────
-
-class TestPhase7NotImplemented:
-    def test_demo_scenarios_file_not_present(self):
-        from pathlib import Path as _Path
-        scenarios = _Path(__file__).parent.parent / "demo" / "scenarios.py"
-        assert not scenarios.exists(), (
-            "demo/scenarios.py exists — Phase 7 has been implemented prematurely"
-        )
