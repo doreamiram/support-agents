@@ -3,8 +3,8 @@
 > **Purpose:** Provide Modelyo with a structured checklist for evaluating this
 > prototype against the PRD requirements (version 0.1, 2026-05-02).
 >
-> **Scope:** Phase 1 through Phase 8 of the prototype implementation.  
-> **Test baseline:** 529 tests, all passing.
+> **Scope:** Phase 1 through Phase 9 of the prototype implementation.  
+> **Test baseline:** 537 tests, all passing.
 
 ---
 
@@ -61,7 +61,7 @@
 | NFR-12 | Latency targets | Not specified (to be agreed; T-15) |
 | NFR-13 | Graceful degradation on dependency failure | Done — KB miss → Tier 2 fallback |
 | NFR-14 | System behaviour measurable | Done — Telemetry events (prototype) |
-| NFR-15 | Regressions detectable before deployment | Done — 529-test suite with coverage of all core behaviours |
+| NFR-15 | Regressions detectable before deployment | Done — 537-test suite with coverage of all core behaviours |
 
 ### Integration Requirements
 
@@ -105,6 +105,7 @@
 | All five demo scenarios pass end-to-end | test_demo_scenarios.py | Pass |
 | Telemetry records only safe high-level events | test_telemetry.py | Pass |
 | LLM readiness: mock provider deterministic; task validation; sanitization | test_llm_provider.py | Pass |
+| Static web-demo files and safe demo-data snapshot | test_web_demo_static.py | Pass |
 
 ---
 
@@ -140,8 +141,16 @@
 | 6 | 76 | 458 | HandoffBuilder, AuditLogger, /audit/verify endpoint |
 | **7** | **54 net** | **512** | **Demo scenarios, telemetry, documentation presence** |
 | **8** | **17 net** | **529** | **LLM provider contract, MockLLMProvider, sanitization, integration notes** |
+| **9** | **8 net** | **537** | **Static web-demo (presentation only), regression tests** |
 
-**529 / 529 tests passing.  No skipped tests.**
+**537 / 537 tests passing.  No skipped tests.**
+
+### Phase 9 — Visual web demo (presentation only)
+
+`web-demo/` is static HTML/CSS/JS with `demo-data.json`; `tests/test_web_demo_static.py`
+asserts file presence, five PASS scenarios, no sensitive substrings in JSON, and
+required reviewer-facing copy. The page does not execute the backend; the CLI
+demo and pytest suite remain authoritative.
 
 ---
 

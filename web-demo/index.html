@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Modelyo Support Agents — Visual Demo</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <h1>Modelyo Support Agents</h1>
+    <p class="subtitle">End-to-End Agentic Support Demo</p>
+  </header>
+
+  <section class="panel intro" aria-labelledby="status-heading">
+    <h2 id="status-heading">System status</h2>
+    <ul class="status-list">
+      <li><strong>537/537</strong> tests passing (pytest)</li>
+      <li><strong>5/5</strong> demo scenarios passing (CLI)</li>
+      <li><strong>Deterministic prototype</strong> — rule-based orchestration and agents</li>
+      <li><strong>No real external integrations</strong> — no live Slack, JIRA, WhatsApp, or outbound calls</li>
+      <li><strong>LLM-ready architecture</strong> with <strong>MockLLMProvider</strong> only (no inference API)</li>
+    </ul>
+    <p class="boundary">
+      This page is a <strong>visual presentation layer</strong> only. It does not run the Python backend.
+      The <strong>executable backend demo</strong> remains: <code>.\.venv\Scripts\python.exe -m demo.scenarios</code>.
+      Backend logic is covered separately by <code>.\.venv\Scripts\pytest.exe -q</code>.
+    </p>
+  </section>
+
+  <section class="panel" aria-labelledby="scenarios-heading">
+    <h2 id="scenarios-heading">Scenario cards</h2>
+    <p class="hint" id="load-hint">Loading scenario data…</p>
+    <div id="cards" class="cards" hidden></div>
+    <p class="fallback" id="fetch-fallback" hidden></p>
+  </section>
+
+  <footer class="footer">
+    <p>Modelyo Confidential Cloud — support automation prototype. Static assets only; no backend execution from this page.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

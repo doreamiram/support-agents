@@ -1,0 +1,165 @@
+:root {
+  color-scheme: light dark;
+  --bg: #0f1419;
+  --panel: #1a2332;
+  --text: #e8eef7;
+  --muted: #9db0c8;
+  --accent: #3d8bfd;
+  --pass: #2ea043;
+  --border: #2d3a4d;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f6f9;
+    --panel: #ffffff;
+    --text: #1a2332;
+    --muted: #4a5b73;
+    --accent: #0969da;
+    --pass: #1a7f37;
+    --border: #d8dee9;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.hero {
+  padding: 2rem 1.5rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.hero h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.panel {
+  max-width: 960px;
+  margin: 1.25rem auto;
+  padding: 0 1.5rem;
+}
+
+.intro {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+}
+
+.intro h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.status-list {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.status-list li { margin-bottom: 0.35rem; }
+
+.boundary {
+  margin: 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.boundary code {
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.12);
+}
+
+#scenarios-heading {
+  font-size: 1.15rem;
+  margin: 0 0 0.5rem;
+}
+
+.hint { color: var(--muted); margin: 0 0 1rem; }
+
+.cards { display: grid; gap: 1rem; }
+
+@media (min-width: 700px) {
+  .cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+}
+
+.card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(46, 160, 67, 0.15);
+  color: var(--pass);
+  margin-bottom: 0.65rem;
+}
+
+.card dl {
+  margin: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.card dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.card dd {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.fallback {
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.35);
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  margin: 0;
+}
+
+.footer {
+  max-width: 960px;
+  margin: 2rem auto 2.5rem;
+  padding: 0 1.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}

@@ -14,11 +14,33 @@ setup instructions.  No real Slack, JIRA, WhatsApp, or LLM account is needed.
 # Activate the virtual environment (if not already active)
 .\.venv\Scripts\Activate.ps1
 
-# Verify the test suite is clean (529 tests, no failures)
+# Verify the test suite is clean (537 tests, no failures)
 .\.venv\Scripts\pytest.exe -q
 ```
 
-Expected baseline: `529 passed`.
+Expected baseline: `537 passed`.
+
+---
+
+## Optional: Visual Web Demo (static)
+
+The `web-demo/` directory is a **browser-only** snapshot of the five scenarios.
+It reads `demo-data.json` and does **not** execute `demo.scenarios` or FastAPI.
+
+```powershell
+cd c:\modelyo-support-agents\web-demo
+python -m http.server 8080
+```
+
+Open `http://127.0.0.1:8080/`. Each card shows **status PASS**, **action**,
+**reason**, **key result**, **PRD capability**, and **simulated vs real** notes.
+If `fetch()` fails (common with `file://`), the page shows a fallback message —
+use the local static server above or deploy `web-demo/` as the Vercel root with
+no build step.
+
+**Visual demo vs CLI demo:** the CLI (`python -m demo.scenarios`) runs the real
+orchestrator and remains the authoritative executable demo. The web page is for
+reviewers who want a quick read-only walkthrough.
 
 ---
 

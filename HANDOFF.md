@@ -1,14 +1,14 @@
-# Modelyo Support Agents — Handoff Document
+﻿# Modelyo Support Agents ג€” Handoff Document
 
 **Generated:** 2026-05-11  
-**Last updated:** 2026-05-14 (Phase 8 complete)  
-**Status:** Phase 8 complete — 529/529 tests passing
+**Last updated:** 2026-05-14 (Phase 9 complete)  
+**Status:** Phase 9 complete ג€” 537/537 tests passing
 
 ---
 
 ## 1. Current Project Status
 
-Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Phase 8). All five demo scenarios pass. No real LLM provider, no external network calls, and no new Python dependencies were added in Phase 8.
+Phase 9 is **complete**. All 537 tests pass (529 through Phase 8 + 8 net new Phase 9). All five CLI demo scenarios pass. Phase 9 adds only a **static visual web demo** under `web-demo/` ג€” no backend execution from the browser, no new Python dependencies, no `package.json`, and no live external integrations.
 
 ---
 
@@ -16,20 +16,55 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 
 | Phase | Scope | Test Count | Status |
 |---|---|---|---|
-| 1A | Skeleton, /health endpoint, README stub, docs stubs | 1 | ✅ Complete |
-| 1B | Config loader, all YAML configs, Pydantic validation | 41 | ✅ Complete |
-| 1C | SQLite DB, SQLAlchemy models, repositories, tenant isolation tests, audit hash chain | 76 total | ✅ Complete |
-| 2 | Channel adapters, identity resolution, security guards | 152 total | ✅ Complete |
-| 3 | Interaction classifier, support orchestrator, Tier 1/2 routing, ticket creation | 214 total | ✅ Complete |
-| 4 | Diagnostics collector, knowledge retriever, first response generator | 297 total | ✅ Complete |
-| 5 | SLA tracker, FakeClock, escalation engine, communication policy, demo endpoint | 382 total | ✅ Complete |
-| 6 | Handoff builder, audit logger service, /audit/verify endpoint, orchestrator extension | 458 total | ✅ Complete |
-| **7** | **Demo scenarios, telemetry service, evaluation framework, final documentation** | **512 total** | **✅ Complete** |
-| **8** | **LLM readiness layer (`LLMProvider`, `MockLLMProvider`, sanitization, docs)** | **529 total** | **✅ Complete** |
+| 1A | Skeleton, /health endpoint, README stub, docs stubs | 1 | ג… Complete |
+| 1B | Config loader, all YAML configs, Pydantic validation | 41 | ג… Complete |
+| 1C | SQLite DB, SQLAlchemy models, repositories, tenant isolation tests, audit hash chain | 76 total | ג… Complete |
+| 2 | Channel adapters, identity resolution, security guards | 152 total | ג… Complete |
+| 3 | Interaction classifier, support orchestrator, Tier 1/2 routing, ticket creation | 214 total | ג… Complete |
+| 4 | Diagnostics collector, knowledge retriever, first response generator | 297 total | ג… Complete |
+| 5 | SLA tracker, FakeClock, escalation engine, communication policy, demo endpoint | 382 total | ג… Complete |
+| 6 | Handoff builder, audit logger service, /audit/verify endpoint, orchestrator extension | 458 total | ג… Complete |
+| **7** | **Demo scenarios, telemetry service, evaluation framework, final documentation** | **512 total** | **ג… Complete** |
+| **8** | **LLM readiness layer (`LLMProvider`, `MockLLMProvider`, sanitization, docs)** | **529 total** | **ג… Complete** |
+| **9** | **Static Vercel-ready visual web demo (`web-demo/`), regression tests** | **537 total** | **ג… Complete** |
 
 ---
 
-## 3. Phase 8 Status
+## 3. Phase 9 Status
+
+**Approved scope:** `web-demo/index.html`, `styles.css`, `app.js`, `demo-data.json`, `web-demo/README.md`, `tests/test_web_demo_static.py`, documentation updates. Presentation layer only; CLI demo `python -m demo.scenarios` unchanged.
+
+**Code status:** 537/537 tests passing. `python -m demo.scenarios`: 5/5 passed.
+
+**Confirmations:** Static assets only; no FastAPI or orchestrator invoked from the web page; no real LLM; no external API calls; no new dependencies; no database schema changes.
+
+---
+
+## 3e. Files Created and Modified in Phase 9
+
+### New files
+| File | Purpose |
+|---|---|
+| `web-demo/index.html` | Static landing page: title, system status, prototype boundary note, card mount points |
+| `web-demo/styles.css` | Lightweight responsive styling (no external CSS framework) |
+| `web-demo/app.js` | Loads `demo-data.json` via `fetch`; fallback message for `file://` |
+| `web-demo/demo-data.json` | Deterministic scenario snapshot (no sensitive payloads) |
+| `web-demo/README.md` | Local static server + optional Vercel root-directory instructions |
+| `tests/test_web_demo_static.py` | 8 tests: file presence, JSON structure, PASS status, forbidden substrings, HTML messaging, no `package.json` |
+
+### Modified files
+| File | Change |
+|---|---|
+| `README.md` | Phase 9 status, 537 tests, Visual Web Demo section, `web-demo/` in project structure |
+| `docs/demo_guide.md` | Optional visual demo; 537-test baseline; interpretation vs CLI |
+| `docs/evaluation_framework.md` | Phase 9 scope, 537 baseline, functional row, ֲ§4 Phase 9 subsection |
+| `docs/design_document.md` | Phase 9 banner; ֲ§17 Visual Web Demo Layer |
+| `docs/requirements_traceability.md` | Q-02 ג†’ 537/537 Phase 9; Q-05 static web demo Done |
+| `HANDOFF.md` | Phase 9 summary, phase table row, this section |
+
+---
+
+## 3a. Phase 8 Status
 
 **Approved scope:** `LLMProvider` abstraction, `MockLLMProvider`, `LLMRequest` / `LLMResponse`, task validation (`LLMUnsupportedTaskError`), diagnostic sanitization helpers, `tests/test_llm_provider.py`, `docs/llm_integration_notes.md`, documentation and traceability updates. No orchestrator wiring; no database schema changes; no new dependencies.
 
@@ -39,7 +74,7 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 
 ---
 
-## 3a. Phase 7 Status
+## 3b. Phase 7 Status
 
 **Approved scope:** Demo scenarios, telemetry service, evaluation framework, README, demo guide, documentation consistency updates.
 
@@ -47,7 +82,7 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 
 ---
 
-## 3b. Files Created and Modified in Phase 8
+## 3c. Files Created and Modified in Phase 8
 
 ### New files
 | File | Purpose |
@@ -60,15 +95,15 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 | File | Change |
 |---|---|
 | `README.md` | Phase 8 status, 529 tests, LLM-ready row, architecture line, key design bullets, `docs/llm_integration_notes.md` pointer |
-| `docs/design_document.md` | Phase 8 banner; 15 components; §16 LLM readiness; evaluation test count 529 |
-| `docs/evaluation_framework.md` | Scope Phase 1–8, 529 baseline, checklist rows, Phase 8 test table row, limitations row |
-| `docs/requirements_traceability.md` | Q-02 → 529/529 Phase 8; Q-03 LLM-ready Done; Q-04 real inference Deferred; prototype-deferred intro |
+| `docs/design_document.md` | Phase 8 banner; 15 components; ֲ§16 LLM readiness; evaluation test count 529 |
+| `docs/evaluation_framework.md` | Scope Phase 1ג€“8, 529 baseline, checklist rows, Phase 8 test table row, limitations row |
+| `docs/requirements_traceability.md` | Q-02 ג†’ 529/529 Phase 8; Q-03 LLM-ready Done; Q-04 real inference Deferred; prototype-deferred intro |
 | `docs/demo_guide.md` | Pytest baseline comment updated to 529 tests |
 | `HANDOFF.md` | Phase 8 summary, phase table row, this section |
 
 ---
 
-## 3c. Phase 6 Status
+## 3d. Phase 6 Status
 
 **Approved scope:** Handoff builder, audit logger service wrapper, `/audit/verify` endpoint, orchestrator extension for structured handoff packets.
 
@@ -95,7 +130,7 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 | `README.md` | Full project documentation: what it is, problem, scope, architecture, setup, test/demo commands, security notes, production roadmap |
 | `tests/test_api_endpoints.py` | Removed `TestPhase7NotImplemented` guard test (demo/scenarios.py now exists) |
 | `tests/test_orchestrator.py` | Removed `TestPhase7NotImplemented` guard test |
-| `docs/design_document.md` | Phase header updated to 7; §15 added (demo scenarios, telemetry, evaluation framework design); PRD coverage table updated; phase list updated |
+| `docs/design_document.md` | Phase header updated to 7; ֲ§15 added (demo scenarios, telemetry, evaluation framework design); PRD coverage table updated; phase list updated |
 | `docs/requirements_traceability.md` | O-08, Q-01, Q-02 marked Done with file/test references |
 | `HANDOFF.md` | This file |
 
@@ -118,7 +153,7 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 | `app/main.py` | Added `GET /audit/verify` endpoint; accepts optional `tenant_id`; verifies single tenant or all configured tenants; no payload content exposed |
 | `tests/test_api_endpoints.py` | Replaced `TestPhase6NotImplemented` with `TestAuditVerify` (13 tests); added `TestPhase7NotImplemented` (1 test) |
 | `tests/test_orchestrator.py` | Replaced `TestPhase6NotImplemented` with `TestPhase6HandoffIntegration` (10 tests) + `TestPhase7NotImplemented` (1 test); added `HandoffPacket` import |
-| `docs/design_document.md` | Phase header updated to 6; §13c added (handoff builder, audit logger, /audit/verify design); data flow diagram updated; PRD coverage table updated |
+| `docs/design_document.md` | Phase header updated to 6; ֲ§13c added (handoff builder, audit logger, /audit/verify design); data flow diagram updated; PRD coverage table updated |
 | `docs/requirements_traceability.md` | F-22, O-05, O-06, S-08 marked Done |
 | `HANDOFF.md` | This file |
 
@@ -130,7 +165,7 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 | File | Purpose |
 |---|---|
 | `app/utils/clock.py` | `ClockProvider` (abstract), `SystemClock` (production), `FakeClock` (tests/demo); `FakeClock.advance(minutes, hours)` |
-| `app/agents/sla_tracker.py` | `SLATracker`, `SLAStatus`; state machine OPEN → ENGINEER_NOTIFIED → ACKNOWLEDGED → RESOLVED/BREACHED; breach detection via ClockProvider; persists to `SLAStateRepository` |
+| `app/agents/sla_tracker.py` | `SLATracker`, `SLAStatus`; state machine OPEN ג†’ ENGINEER_NOTIFIED ג†’ ACKNOWLEDGED ג†’ RESOLVED/BREACHED; breach detection via ClockProvider; persists to `SLAStateRepository` |
 | `app/agents/escalation_engine.py` | `EscalationEngine`, `EscalationResult`, `EscalationAction`; configurable chain lookup (component-specific first, then wildcard); simulated contacts; audit event per escalation |
 | `app/services/communication_policy.py` | `CommunicationPolicy`, `CommDecision`; quiet hours via static UTC offset table; cooldown enforcement; P1 critical override; tenant-scoped rules from `quiet_hours.yaml` |
 | `tests/test_clock.py` | 17 tests for ClockProvider, SystemClock, FakeClock |
@@ -145,7 +180,7 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 | `app/main.py` | Added `POST /demo/advance-time` endpoint; gated by `DEMO_MODE=true` at request time; advances module-level `FakeClock`; returns 404 if not in demo mode |
 | `tests/test_api_endpoints.py` | Added `TestDemoAdvanceTime` (8 tests) and `TestPhase6NotImplemented` (1 test) |
 | `tests/test_orchestrator.py` | Removed 3 now-obsolete Phase 5 negative tests; added `TestPhase5SLAIntegration` (5 tests); renamed negative class to `TestPhase6NotImplemented`; updated module docstring |
-| `docs/design_document.md` | Phase header updated to 5; §13b added (SLA/escalation/comms/demo design); data flow diagram updated; PRD coverage table updated |
+| `docs/design_document.md` | Phase header updated to 5; ֲ§13b added (SLA/escalation/comms/demo design); data flow diagram updated; PRD coverage table updated |
 | `docs/requirements_traceability.md` | F-16 through F-27, O-03, O-04 marked Done |
 | `HANDOFF.md` | This file |
 
@@ -188,11 +223,11 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 
 ### Updates to `tests/test_api_endpoints.py` (+13 net tests, -1 removed)
 - `TestAuditVerify` (13): returns 200 with and without tenant_id; response has valid, event_count, chain_breaks, tenants_verified fields; empty chain is valid (event_count=0); no-tenant_id verifies multiple; payload_json not in response; valid is bool; event_count is int; chain_breaks is list; tenants_verified contains requested tenant
-- `TestPhase7NotImplemented` (1): demo/scenarios.py not present — **removed in Phase 7** (see §4. Files Created and Modified in Phase 7)
+- `TestPhase7NotImplemented` (1): demo/scenarios.py not present ג€” **removed in Phase 7** (see ֲ§4. Files Created and Modified in Phase 7)
 
 ### Updates to `tests/test_orchestrator.py` (+11 net tests, -1 removed)
 - `TestPhase6HandoffIntegration` (10): low_confidence has HandoffPacket; customer_requested_human has HandoffPacket; injection_flagged has HandoffPacket; no_kb_match has HandoffPacket; Tier 1 has no HandoffPacket; packet has all required fields; customer_goal matches subject; routing_action is tier2; result has handoff_packet attribute; question Tier 1 result handoff_packet is None
-- `TestPhase7NotImplemented` (1): demo/scenarios.py not present — **removed in Phase 7** (see §4. Files Created and Modified in Phase 7)
+- `TestPhase7NotImplemented` (1): demo/scenarios.py not present ג€” **removed in Phase 7** (see ֲ§4. Files Created and Modified in Phase 7)
 
 ## 5b. Tests Created in Phase 5
 
@@ -233,15 +268,15 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 
 | Phase | Tests | Result |
 |---|---|---|
-| 1A | 1 | ✅ 1/1 passed |
-| 1B | 41 | ✅ 41/41 passed |
-| 1C | 76 total | ✅ 76/76 passed |
-| 2 | ~76 new | ✅ 152/152 passed |
-| 3 | 62 new | ✅ 214/214 passed |
-| 4 | 83 new | ✅ 297/297 passed |
-| 5 | 85 new | ✅ 382/382 passed |
-| 6 | 76 new | ✅ 458/458 passed |
-| **7** | **54 net new** | **✅ 512/512 passed** |
+| 1A | 1 | ג… 1/1 passed |
+| 1B | 41 | ג… 41/41 passed |
+| 1C | 76 total | ג… 76/76 passed |
+| 2 | ~76 new | ג… 152/152 passed |
+| 3 | 62 new | ג… 214/214 passed |
+| 4 | 83 new | ג… 297/297 passed |
+| 5 | 85 new | ג… 382/382 passed |
+| 6 | 76 new | ג… 458/458 passed |
+| **7** | **54 net new** | **ג… 512/512 passed** |
 
 ---
 
@@ -251,7 +286,7 @@ Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Ph
 Scenario 4 (SLA escalation) calls `orch._sla_tracker.check_breach()` and
 `orch._escalation_engine.escalate()` directly to demonstrate breach detection
 after FakeClock advancement.  These are private attributes (by convention) but
-accessible in Python.  This is intentional for demo purposes only — production
+accessible in Python.  This is intentional for demo purposes only ג€” production
 code should not access private orchestrator internals.
 
 ### Telemetry is closed, not open
@@ -262,9 +297,9 @@ explicitly added to `_ALLOWED_EVENT_TYPES`.
 
 ### Demo clock fixed to business-hours UTC for comm policy
 Scenarios 1 and 5 use `FakeClock(start=datetime(2026, 1, 5, 14, 0, 0, UTC))`
-so that the communication policy (acme-corp quiet hours: 22:00–08:00 Eastern)
+so that the communication policy (acme-corp quiet hours: 22:00ג€“08:00 Eastern)
 allows the first response to be generated.  14:00 UTC = 09:00 Eastern on Monday
-— inside business hours.
+ג€” inside business hours.
 
 ### Scenarios 3 and 4 use the default FakeClock start (09:00 UTC)
 Scenarios 2, 3, and 4 do not need comm policy to allow messages (Scenario 2
@@ -286,7 +321,7 @@ The handoff packet is built at the END of `process()` after the final `action` v
 `AuditLogger.__init__` accepts an injected `Session` (same as `AuditRepository`). This keeps the service stateless and allows it to participate in the same transaction as other repository operations without requiring a separate connection.
 
 ### /audit/verify never returns payload content
-The endpoint returns only: `valid`, `event_count`, `chain_breaks`, `tenants_verified`. The `chain_breaks` list contains only positional/structural descriptions (e.g. "Chain break at position 2 — hash mismatch"), not payload values. Raw `AuditEvent.payload_json` content is never included in the HTTP response.
+The endpoint returns only: `valid`, `event_count`, `chain_breaks`, `tenants_verified`. The `chain_breaks` list contains only positional/structural descriptions (e.g. "Chain break at position 2 ג€” hash mismatch"), not payload values. Raw `AuditEvent.payload_json` content is never included in the HTTP response.
 
 ### Phase 7 guard tests removed from both test files
 `TestPhase7NotImplemented` was present in both `tests/test_orchestrator.py` and `tests/test_api_endpoints.py` during Phase 6 as a scope guard. Both were removed in Phase 7 when `demo/scenarios.py` was created.
@@ -299,13 +334,13 @@ The endpoint returns only: `valid`, `event_count`, `chain_breaks`, `tenants_veri
 All time operations in Phase 5 code go through the injected `ClockProvider`. Neither `SLATracker`, `EscalationEngine`, nor `CommunicationPolicy` call `datetime.utcnow()` or `datetime.now()` directly. This makes all SLA breach tests deterministic (no real-time waiting) and enables demo time travel without any actual sleeping.
 
 ### Private attributes prevent negative assertion breakage
-Phase 5 agents are stored as `_sla_tracker`, `_escalation_engine`, and `_communication_policy` — private instance attributes (set in `__init__`, not as class variables). Python's `hasattr(SupportOrchestrator, "sla_tracker")` only finds class-level names; instance attributes are invisible. This allows the Phase 5 orchestrator extension to coexist with clean separation between phase assertions.
+Phase 5 agents are stored as `_sla_tracker`, `_escalation_engine`, and `_communication_policy` ג€” private instance attributes (set in `__init__`, not as class variables). Python's `hasattr(SupportOrchestrator, "sla_tracker")` only finds class-level names; instance attributes are invisible. This allows the Phase 5 orchestrator extension to coexist with clean separation between phase assertions.
 
 ### Timezone handling without tzdata
-The `CommunicationPolicy` uses a static `_UTC_OFFSET_MINUTES` lookup table for IANA timezone names (e.g., `"America/New_York": -300`). This avoids a runtime dependency on `tzdata` (not installed) or `pytz` (not available). DST is not modelled — acceptable for a prototype. Tests use carefully chosen UTC times that map correctly to local-time windows using the static offsets.
+The `CommunicationPolicy` uses a static `_UTC_OFFSET_MINUTES` lookup table for IANA timezone names (e.g., `"America/New_York": -300`). This avoids a runtime dependency on `tzdata` (not installed) or `pytz` (not available). DST is not modelled ג€” acceptable for a prototype. Tests use carefully chosen UTC times that map correctly to local-time windows using the static offsets.
 
 ### Quiet hours overnight windows
-The quiet hours check correctly handles overnight windows (e.g., 22:00–08:00) by detecting when `start_minutes > end_minutes` and evaluating the two sub-ranges (current ≥ start OR current < end).
+The quiet hours check correctly handles overnight windows (e.g., 22:00ג€“08:00) by detecting when `start_minutes > end_minutes` and evaluating the two sub-ranges (current ג‰¥ start OR current < end).
 
 ### Escalation always records audit
 Even when no escalation chain is found (unknown tenant, unconfigured severity), `EscalationEngine.escalate()` writes an `escalation_triggered` audit event with `chain_found=False`. This ensures all escalation attempts are observable regardless of outcome.
@@ -314,7 +349,7 @@ Even when no escalation chain is found (unknown tenant, unconfigured severity), 
 In the orchestrator, SLA is initialized immediately after ticket creation (before KB retrieval). This means incidents that later route to Tier 2 due to `no_kb_match` still have SLA tracking active. SLA continuation for Tier 2-routed incidents is correct by design.
 
 ### Demo clock is separate from orchestrator clock
-The module-level `_demo_clock` in `app/main.py` is a display-only FakeClock for the demo endpoint. It does not feed into any SLATracker or EscalationEngine instance. Demo scenarios wire FakeClock directly into the orchestrator for deterministic SLA testing — implemented in `demo/scenarios.py` (Phase 7).
+The module-level `_demo_clock` in `app/main.py` is a display-only FakeClock for the demo endpoint. It does not feed into any SLATracker or EscalationEngine instance. Demo scenarios wire FakeClock directly into the orchestrator for deterministic SLA testing ג€” implemented in `demo/scenarios.py` (Phase 7).
 
 ---
 
@@ -323,18 +358,18 @@ The module-level `_demo_clock` in `app/main.py` is a display-only FakeClock for 
 Phase 7 satisfies:
 - **NFR-07** (operational telemetry): `Telemetry` service records classification, handoff, SLA, and escalation events at prototype scope
 - **NFR-14** (measurable behaviour): `Telemetry.summary()` provides per-event-type counts; demo scenarios produce a structured pass/fail report
-- **NFR-15** (regression-detectable): 529-test pytest suite with full coverage of all core behaviours; all passing (includes Phase 8 LLM readiness tests)
+- **NFR-15** (regression-detectable): 537-test pytest suite with full coverage of all core behaviours; all passing (includes Phase 8 LLM readiness and Phase 9 static web-demo tests)
 
 ---
 
 ## 8b. Known Issues and Unfinished Tasks
 
-1. **`follow_up` ticket update not implemented** — For follow-up events the orchestrator routes Tier 1 but does not update any existing ticket.
-2. **Diagnostics not persisted to DB** — `DiagnosticRepository` exists (Phase 1C) but the orchestrator does not save extracted diagnostic fields to DB. Deferred.
-3. **`affected_endpoint` and `affected_instance` not extractable** — These required fields for `api-gateway` and `compute-engine` incidents have no regex extraction pattern. Intentional.
-4. **SLA deadline not persisted to Ticket columns** — `Ticket.sla_deadline_response` and `Ticket.sla_deadline_resolution` remain NULL; deadlines are held in-memory in `SLATracker._states`. Adequate for the prototype; a production system would persist these for crash recovery.
-5. **Demo clock disconnected from SLA clock** — `/demo/advance-time` advances a standalone FakeClock that is not wired to any orchestrator instance. Phase 7 demo scenarios will wire them together.
-6. **DST not modelled in CommunicationPolicy** — Static UTC offsets are used instead of IANA timezone data. Acceptable for prototype with deterministic FakeClock tests.
+1. **`follow_up` ticket update not implemented** ג€” For follow-up events the orchestrator routes Tier 1 but does not update any existing ticket.
+2. **Diagnostics not persisted to DB** ג€” `DiagnosticRepository` exists (Phase 1C) but the orchestrator does not save extracted diagnostic fields to DB. Deferred.
+3. **`affected_endpoint` and `affected_instance` not extractable** ג€” These required fields for `api-gateway` and `compute-engine` incidents have no regex extraction pattern. Intentional.
+4. **SLA deadline not persisted to Ticket columns** ג€” `Ticket.sla_deadline_response` and `Ticket.sla_deadline_resolution` remain NULL; deadlines are held in-memory in `SLATracker._states`. Adequate for the prototype; a production system would persist these for crash recovery.
+5. **Demo clock disconnected from SLA clock** ג€” `/demo/advance-time` advances a standalone FakeClock that is not wired to any orchestrator instance. Phase 7 demo scenarios will wire them together.
+6. **DST not modelled in CommunicationPolicy** ג€” Static UTC offsets are used instead of IANA timezone data. Acceptable for prototype with deterministic FakeClock tests.
 
 ---
 
@@ -354,8 +389,8 @@ Phase 5 satisfies:
 - **FR-15** (engineer notification): simulated via EscalationEngine
 - **FR-16** (SLA timer from first contact, severity-based): `SLATracker.initialize()` from `sla_rules.yaml`
 - **FR-17** (notified vs. engaged distinction): `engineer_notified` and `engineer_engaged` tracked separately
-- **FR-18** (escalation on SLA timer expiry): `check_breach()` → `escalation_engine.escalate()`
-- **FR-19** (configurable chain by severity × component): `EscalationEngine._find_chain()` with component-specific priority
+- **FR-18** (escalation on SLA timer expiry): `check_breach()` ג†’ `escalation_engine.escalate()`
+- **FR-19** (configurable chain by severity ֳ— component): `EscalationEngine._find_chain()` with component-specific priority
 - **FR-20** (escalation audit): `escalation_triggered` audit event on every call
 - **FR-21, FR-22** (proactive comms on state changes only; no unsolicited pings): `CommunicationPolicy` gates first-response generation
 - **FR-23** (quiet hours, cooldown, Sev-1 override): fully implemented in `CommunicationPolicy`
@@ -364,24 +399,30 @@ Phase 5 satisfies:
 
 ## 10. Exact Next Recommended Step
 
-**Phase 8 is complete.** The prototype is LLM-ready (mock provider + integration notes) and remains ready for Modelyo review.
+**Phase 9 is complete.** The prototype includes a static browser demo under `web-demo/` and remains ready for Modelyo review.
 
 To evaluate the prototype:
 
 ```powershell
 cd c:\modelyo-support-agents
 
-# Run all 529 tests
+# Run all 537 tests
 .\.venv\Scripts\pytest.exe -q
 
 # Run the demo
 .\.venv\Scripts\python.exe -m demo.scenarios
 
-# Start the API server
+# Optional: static visual demo (from web-demo/)
+cd web-demo
+python -m http.server 8080
+
+# Optional: static local server
+cd c:\modelyo-support-agents
 uvicorn app.main:app --reload
 ```
 
-See `docs/demo_guide.md` for a full walkthrough, `docs/llm_integration_notes.md` for LLM production extension guidance, and `docs/evaluation_framework.md`
+See `docs/demo_guide.md` for a full walkthrough, `docs/llm_integration_notes.md` for LLM production extension guidance, `web-demo/README.md` for the visual layer, and `docs/evaluation_framework.md`
 for the PRD coverage checklist.
 
-For production next steps, see §6 of `docs/evaluation_framework.md`.
+For production next steps, see ֲ§6 of `docs/evaluation_framework.md`.
+

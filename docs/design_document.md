@@ -1,6 +1,6 @@
 # Modelyo Support Agents — Design Document
 
-> **Phase:** 8 (LLM readiness layer: provider contract, mock implementation, integration notes). This document is updated after each implementation phase.
+> **Phase:** 9 (Static visual web demo: presentation layer only). This document is updated after each implementation phase.
 
 ---
 
@@ -743,7 +743,7 @@ prototype scope.
 - PRD requirements coverage (FR, NFR, IR) with status per requirement
 - Functional test checklist with result per behaviour
 - Security controls checklist with test references
-- Test counts per phase (529 total, all passing)
+- Test counts per phase (537 total, all passing)
 - Known prototype limitations with production mitigation notes
 - Suggested production next steps in priority order
 
@@ -805,3 +805,20 @@ implementation at an integration boundary described in
 **Tests:** `tests/test_llm_provider.py` covers determinism, task validation,
 sanitization, forbidden substring scan on the module source, and grounding
 metadata on `LLMResponse`.
+
+---
+
+## 17. Visual Web Demo Layer (Phase 9)
+
+The `web-demo/` directory (`index.html`, `styles.css`, `app.js`, `demo-data.json`,
+`README.md`) is a **static, Vercel-ready presentation** of the five CLI demo
+scenarios. It sits **outside** the FastAPI application and orchestration stack:
+no Python execution, no database access, and no replacement for
+`python -m demo.scenarios`.
+
+**Purpose:** reviewer-friendly cards (action, reason, PRD mapping, simulated vs
+real) with deterministic JSON content that excludes sensitive payloads.
+
+**Constraints:** no `npm` build, no CDN dependency, no backend calls from the
+browser. Full behaviour remains validated by `tests/test_web_demo_static.py` and
+the existing pytest suite.

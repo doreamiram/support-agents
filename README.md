@@ -3,9 +3,9 @@
 Agentic Tier 1 / Tier 2 customer support prototype for Modelyo Confidential Cloud
 enterprise customers.
 
-> **Status:** Phase 8 complete — 529/529 tests passing. See `docs/design_document.md`
+> **Status:** Phase 9 complete — 537/537 tests passing. See `docs/design_document.md`
 > for architecture details, `docs/llm_integration_notes.md` for LLM readiness, and
-> `docs/demo_guide.md` to run the demo.
+> `docs/demo_guide.md` for CLI and optional visual demo instructions.
 
 ---
 
@@ -127,7 +127,7 @@ Interactive docs: `http://127.0.0.1:8000/docs`
 ## Run tests
 
 ```powershell
-# Full suite (529 tests)
+# Full suite (537 tests)
 .\.venv\Scripts\pytest.exe
 
 # Quiet summary
@@ -155,6 +155,30 @@ See `docs/demo_guide.md` for a detailed walkthrough of each scenario and how
 to present them to a reviewer.
 
 ---
+
+## Visual Web Demo (static)
+
+The `web-demo/` folder is a **Vercel-ready static presentation** of the five
+scenarios (HTML, CSS, JS, and `demo-data.json`). It does **not** run the Python
+backend and does **not** replace the CLI demo. Use it for browser-based reviews
+only.
+
+```powershell
+cd c:\modelyo-support-agents\web-demo
+python -m http.server 8080
+```
+
+Then open `http://127.0.0.1:8080/`. For Vercel, set the project **Root Directory**
+to `web-demo` — no `npm install`, no build step, and no API keys. The executable
+pipeline and full regression coverage remain:
+
+```powershell
+.\.venv\Scripts\python.exe -m demo.scenarios
+.\.venv\Scripts\pytest.exe -q
+```
+
+No real LLM inference and no live Slack, JIRA, or WhatsApp integrations are used
+anywhere in this repository.
 
 ## Key design choices
 
@@ -223,7 +247,8 @@ app/                Application source
   utils/            ClockProvider, redaction
 config/             YAML config files and KB markdown articles
 docs/               Design document, requirements traceability, demo guide, LLM integration notes
-demo/               End-to-end demo scenarios
-tests/              Full pytest suite (529 tests)
+demo/               End-to-end demo scenarios (CLI)
+web-demo/           Static visual demo (browser; presentation only)
+tests/              Full pytest suite (537 tests)
 audit_logs/         Exported demo audit log examples (reference only)
 ```
