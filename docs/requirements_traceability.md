@@ -85,13 +85,15 @@
 | O-07 | O | System degrades gracefully when KB is unavailable or returns no match: falls back to human-review route and never fails silently (NFR-13) | 4 | app/agents/first_response_generator.py, app/agents/knowledge_retriever.py | tests/test_first_response_generator.py, tests/test_orchestrator.py | Done |
 | O-08 | O | Operational telemetry captured in demo/evaluation layer: classification accuracy, response groundedness, escalation correctness, SLA breach rates (NFR-07, NFR-14) | 7 | app/services/telemetry.py, demo/scenarios.py | tests/test_telemetry.py, tests/test_demo_scenarios.py | Done |
 | Q-01 | Q | All 5 required demo scenarios pass end-to-end (NFR-15) | 7 | demo/scenarios.py | tests/test_demo_scenarios.py::TestScenarioResults::test_all_scenarios_pass | Done |
-| Q-02 | Q | pytest suite covers all core behaviors with no skipped tests (NFR-15) | 7 | tests/ | — 512/512 passing, 0 skipped | Done |
+| Q-02 | Q | pytest suite covers all core behaviors with no skipped tests (NFR-15) | 8 | tests/ | — 529/529 passing, 0 skipped | Done |
+| Q-03 | Q | LLM-ready architecture: provider abstraction, mock implementation, safe request construction, diagnostic sanitization helpers aligned with PRD LLM-based system wording | 8 | app/services/llm_provider.py | tests/test_llm_provider.py | Done |
+| Q-04 | Q | Real external LLM inference API (managed or self-hosted) — production extension | Prototype-deferred | — no live inference in repo; see docs/llm_integration_notes.md | — | Deferred |
 
 ---
 
 ## Prototype-Deferred Requirements
 
-The following PRD requirements cannot be verified in this prototype without live external integrations. They are documented above as **Deferred** rows (F-28, F-29, F-30) and are not in scope for Phases 1–7 of the prototype.
+The following PRD requirements cannot be verified in this prototype without live external integrations. They are documented above as **Deferred** rows (F-28, F-29, F-30, Q-04) and are not in scope for Phases 1–8 of the prototype.
 
 | PRD Ref | Requirement | Reason deferred |
 |---|---|---|

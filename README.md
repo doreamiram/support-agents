@@ -3,8 +3,9 @@
 Agentic Tier 1 / Tier 2 customer support prototype for Modelyo Confidential Cloud
 enterprise customers.
 
-> **Status:** Phase 7 complete — 512/512 tests passing. See `docs/design_document.md`
-> for architecture details and `docs/demo_guide.md` to run the demo.
+> **Status:** Phase 8 complete — 529/529 tests passing. See `docs/design_document.md`
+> for architecture details, `docs/llm_integration_notes.md` for LLM readiness, and
+> `docs/demo_guide.md` to run the demo.
 
 ---
 
@@ -37,7 +38,7 @@ are simulated / stubbed:
 
 | What is simulated | Why |
 |---|---|
-| LLM responses | First Response Generator uses deterministic KB lookup + template |
+| LLM responses | `MockLLMProvider` + deterministic agents: no external inference; real LLM is a production extension (see `docs/llm_integration_notes.md`) |
 | JIRA ticket write | Tickets stored in in-memory / local SQLite only |
 | Slack outbound messages | No real Slack API calls |
 | WhatsApp outbound messages | No real WhatsApp Business API calls |
@@ -46,6 +47,7 @@ are simulated / stubbed:
 
 What **is real**:
 
+- **LLM-ready service layer** — `LLMProvider` contract and `MockLLMProvider` for deterministic, safe, reproducible behaviour (not wired into the orchestrator in Phase 8)
 - Full deterministic classification, diagnostics, and KB retrieval pipeline
 - Tamper-evident audit hash chain (SHA-256) in SQLite
 - SLA breach detection with configurable severity rules
@@ -79,6 +81,7 @@ Inbound event (JIRA / Slack / WhatsApp webhook)
         +-- Escalation Engine  on-call chain; simulated actions
         +-- Handoff Builder    structured packet for Tier 2 engineer
         +-- Audit Logger       every decision written to hash chain
+        +-- LLM readiness      LLMProvider + MockLLMProvider (optional extension path)
 ```
 
 See `docs/design_document.md` for a detailed description of each component.
@@ -124,7 +127,7 @@ Interactive docs: `http://127.0.0.1:8000/docs`
 ## Run tests
 
 ```powershell
-# Full suite (512 tests)
+# Full suite (529 tests)
 .\.venv\Scripts\pytest.exe
 
 # Quiet summary
@@ -155,8 +158,10 @@ to present them to a reviewer.
 
 ## Key design choices
 
-- **Deterministic orchestration** — no LLM calls in the critical path; all
-  decisions are rule-based and reproducible.
+- **Deterministic orchestration** — the orchestrator and Tier 1/Tier 2 agents
+  remain rule-based and reproducible; they are the **source of truth** for tests
+  and safety. `MockLLMProvider` is an optional readiness stub, not a dependency
+  of the demo.
 - **ClockProvider abstraction** — `FakeClock` enables SLA breach tests and demo
   time-travel without real delays.
 - **Data classification on every field** — PUBLIC / INTERNAL / CONFIDENTIAL /
@@ -183,8 +188,9 @@ to present them to a reviewer.
 
 ## What would be needed for production
 
-1. **Real LLM hosting** — evaluate managed vs. self-hosted against Modelyo's
-   confidential-computing posture (PRD T-02 / D-01).
+1. **Real LLM hosting** — implement a production `LLMProvider` behind the Phase 8
+   contract; evaluate managed vs. self-hosted options against Modelyo's
+   confidential-computing posture (PRD T-02 / D-01). See `docs/llm_integration_notes.md`.
 2. **JIRA Service Desk API** — ticket write, field update, comment threading.
 3. **Real channel outbound** — Slack Bot API, WhatsApp Business API (with
    Meta-approved templates for out-of-session messages).
@@ -216,8 +222,8 @@ app/                Application source
   services/         Ticket Manager, Identity, Audit Logger, Telemetry, etc.
   utils/            ClockProvider, redaction
 config/             YAML config files and KB markdown articles
-docs/               Design document, requirements traceability, demo guide
+docs/               Design document, requirements traceability, demo guide, LLM integration notes
 demo/               End-to-end demo scenarios
-tests/              Full pytest suite (512 tests)
+tests/              Full pytest suite (529 tests)
 audit_logs/         Exported demo audit log examples (reference only)
 ```

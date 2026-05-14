@@ -1,14 +1,14 @@
 # Modelyo Support Agents — Handoff Document
 
 **Generated:** 2026-05-11  
-**Last updated:** 2026-05-12 (Phase 7 complete)  
-**Status:** Phase 7 complete — 512/512 tests passing
+**Last updated:** 2026-05-14 (Phase 8 complete)  
+**Status:** Phase 8 complete — 529/529 tests passing
 
 ---
 
 ## 1. Current Project Status
 
-Phase 7 is **complete**. All 512 tests pass (458 Phase 1–6 + 54 net new Phase 7). All documentation updated.
+Phase 8 is **complete**. All 529 tests pass (512 through Phase 7 + 17 net new Phase 8). All five demo scenarios pass. No real LLM provider, no external network calls, and no new Python dependencies were added in Phase 8.
 
 ---
 
@@ -25,10 +25,21 @@ Phase 7 is **complete**. All 512 tests pass (458 Phase 1–6 + 54 net new Phase 
 | 5 | SLA tracker, FakeClock, escalation engine, communication policy, demo endpoint | 382 total | ✅ Complete |
 | 6 | Handoff builder, audit logger service, /audit/verify endpoint, orchestrator extension | 458 total | ✅ Complete |
 | **7** | **Demo scenarios, telemetry service, evaluation framework, final documentation** | **512 total** | **✅ Complete** |
+| **8** | **LLM readiness layer (`LLMProvider`, `MockLLMProvider`, sanitization, docs)** | **529 total** | **✅ Complete** |
 
 ---
 
-## 3. Phase 7 Status
+## 3. Phase 8 Status
+
+**Approved scope:** `LLMProvider` abstraction, `MockLLMProvider`, `LLMRequest` / `LLMResponse`, task validation (`LLMUnsupportedTaskError`), diagnostic sanitization helpers, `tests/test_llm_provider.py`, `docs/llm_integration_notes.md`, documentation and traceability updates. No orchestrator wiring; no database schema changes; no new dependencies.
+
+**Code status:** 529/529 tests passing. `python -m demo.scenarios`: 5/5 passed.
+
+**Confirmations:** No real LLM inference; no external API calls from the new module; no API keys or env-based credentials for inference; deterministic agents remain the source of truth for routing and customer-facing output.
+
+---
+
+## 3a. Phase 7 Status
 
 **Approved scope:** Demo scenarios, telemetry service, evaluation framework, README, demo guide, documentation consistency updates.
 
@@ -36,7 +47,28 @@ Phase 7 is **complete**. All 512 tests pass (458 Phase 1–6 + 54 net new Phase 
 
 ---
 
-## 3b. Phase 6 Status
+## 3b. Files Created and Modified in Phase 8
+
+### New files
+| File | Purpose |
+|---|---|
+| `app/services/llm_provider.py` | `LLMTaskType`, `LLMRequest`, `LLMResponse`, `LLMUnsupportedTaskError`, `LLMProvider` ABC, `MockLLMProvider`, diagnostic sanitization helpers, `merge_safe_context` |
+| `tests/test_llm_provider.py` | 17 tests: determinism, task strings, unsupported tasks, sanitization, forbidden substring scan on module source, grounding metadata |
+| `docs/llm_integration_notes.md` | PRD alignment, trust boundary, production hosting options, guardrails, how to replace mock with production provider |
+
+### Modified files
+| File | Change |
+|---|---|
+| `README.md` | Phase 8 status, 529 tests, LLM-ready row, architecture line, key design bullets, `docs/llm_integration_notes.md` pointer |
+| `docs/design_document.md` | Phase 8 banner; 15 components; §16 LLM readiness; evaluation test count 529 |
+| `docs/evaluation_framework.md` | Scope Phase 1–8, 529 baseline, checklist rows, Phase 8 test table row, limitations row |
+| `docs/requirements_traceability.md` | Q-02 → 529/529 Phase 8; Q-03 LLM-ready Done; Q-04 real inference Deferred; prototype-deferred intro |
+| `docs/demo_guide.md` | Pytest baseline comment updated to 529 tests |
+| `HANDOFF.md` | Phase 8 summary, phase table row, this section |
+
+---
+
+## 3c. Phase 6 Status
 
 **Approved scope:** Handoff builder, audit logger service wrapper, `/audit/verify` endpoint, orchestrator extension for structured handoff packets.
 
@@ -291,7 +323,7 @@ The module-level `_demo_clock` in `app/main.py` is a display-only FakeClock for 
 Phase 7 satisfies:
 - **NFR-07** (operational telemetry): `Telemetry` service records classification, handoff, SLA, and escalation events at prototype scope
 - **NFR-14** (measurable behaviour): `Telemetry.summary()` provides per-event-type counts; demo scenarios produce a structured pass/fail report
-- **NFR-15** (regression-detectable): 512-test pytest suite with full coverage of all core behaviours; all passing
+- **NFR-15** (regression-detectable): 529-test pytest suite with full coverage of all core behaviours; all passing (includes Phase 8 LLM readiness tests)
 
 ---
 
@@ -332,14 +364,14 @@ Phase 5 satisfies:
 
 ## 10. Exact Next Recommended Step
 
-**Phase 7 is complete.** The prototype is ready for Modelyo review.
+**Phase 8 is complete.** The prototype is LLM-ready (mock provider + integration notes) and remains ready for Modelyo review.
 
 To evaluate the prototype:
 
 ```powershell
 cd c:\modelyo-support-agents
 
-# Run all 512 tests
+# Run all 529 tests
 .\.venv\Scripts\pytest.exe -q
 
 # Run the demo
@@ -349,7 +381,7 @@ cd c:\modelyo-support-agents
 uvicorn app.main:app --reload
 ```
 
-See `docs/demo_guide.md` for a full walkthrough and `docs/evaluation_framework.md`
+See `docs/demo_guide.md` for a full walkthrough, `docs/llm_integration_notes.md` for LLM production extension guidance, and `docs/evaluation_framework.md`
 for the PRD coverage checklist.
 
 For production next steps, see §6 of `docs/evaluation_framework.md`.

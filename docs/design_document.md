@@ -1,6 +1,6 @@
 # Modelyo Support Agents — Design Document
 
-> **Phase:** 7 (Demo scenarios, telemetry service, evaluation framework, final documentation). This document is updated after each implementation phase.
+> **Phase:** 8 (LLM readiness layer: provider contract, mock implementation, integration notes). This document is updated after each implementation phase.
 
 ---
 
@@ -12,7 +12,7 @@ This system is a junior-level professional prototype for Modelyo Confidential Cl
 
 ## 2. Architecture Overview
 
-The system is organized into 14 discrete responsibilities:
+The system is organized into 15 discrete responsibilities:
 
 | # | Component | Responsibility |
 |---|---|---|
@@ -30,6 +30,7 @@ The system is organized into 14 discrete responsibilities:
 | 12 | Human Handoff Builder | Structured packet for Tier 2 engineers; CONFIDENTIAL/RESTRICTED fields excluded |
 | 13 | Audit Logger | Service wrapper + tamper-evident hash-chained audit trail in SQLite |
 | 14 | Config Loader | Load and validate all YAML config at startup |
+| 15 | LLM Readiness | `LLMProvider` + `MockLLMProvider` in `app/services/llm_provider.py`; sanitizers exclude sensitive diagnostics and forbidden context keys; not on the default orchestrator path (see `docs/llm_integration_notes.md`) |
 
 ---
 
@@ -742,7 +743,7 @@ prototype scope.
 - PRD requirements coverage (FR, NFR, IR) with status per requirement
 - Functional test checklist with result per behaviour
 - Security controls checklist with test references
-- Test counts per phase (512 total, all passing)
+- Test counts per phase (529 total, all passing)
 - Known prototype limitations with production mitigation notes
 - Suggested production next steps in priority order
 
@@ -762,3 +763,45 @@ prototype scope.
 - Metadata copied on record; `events()` returns a list copy
 - No `payload` or `customer_data` in any allowed event type name
 - `summary()` returns correct per-type counts
+
+---
+
+## 16. LLM Readiness Layer (Phase 8)
+
+Phase 8 introduces an explicit **LLM readiness** surface in
+`app/services/llm_provider.py` so the codebase matches PRD wording for an
+LLM-based agent system **without** adding external inference, API keys, or new
+dependencies.
+
+**Types and behaviour**
+
+- `LLMTaskType` — closed set of task labels (`classify_intent`,
+  `draft_first_response`, `summarize_handoff`, `generate_follow_up_question`).
+- `LLMRequest` — accepts `task` as `LLMTaskType` or `str`; unsupported strings
+  raise `LLMUnsupportedTaskError` during construction. Carries only
+  `safe_context` string maps and optional high-level hints (`category`,
+  `severity`, `component`, `kb_article_id`). **No** `raw_payload` field exists on
+  this type.
+- `LLMResponse` — `text` plus `source_metadata` (e.g. `provider`, `task`,
+  `determinism_fingerprint`, groundedness flags).
+- `MockLLMProvider` — deterministic `complete()`; identical requests produce
+  identical responses; no network I/O.
+
+**Sanitization helpers**
+
+- `safe_diagnostic_fields_for_llm` / `safe_diagnostic_fields_for_llm_from_result`
+  mirror the `PUBLIC` + `INTERNAL` rule used by `FirstResponseGenerator` and
+  `HandoffBuilder` so `CONFIDENTIAL` and `RESTRICTED` diagnostic values never
+  enter model-oriented maps.
+- `merge_safe_context` drops keys such as `raw_payload` and common secret-style
+  names (defense in depth).
+
+**Orchestrator note:** Phase 8 does **not** wire `MockLLMProvider` into
+`Orchestrator`; Tier 1 / Tier 2 behaviour and the demo remain driven by the
+existing deterministic agents. Production would inject a real `LLMProvider`
+implementation at an integration boundary described in
+`docs/llm_integration_notes.md`.
+
+**Tests:** `tests/test_llm_provider.py` covers determinism, task validation,
+sanitization, forbidden substring scan on the module source, and grounding
+metadata on `LLMResponse`.

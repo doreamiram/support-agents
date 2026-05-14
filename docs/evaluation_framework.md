@@ -3,8 +3,8 @@
 > **Purpose:** Provide Modelyo with a structured checklist for evaluating this
 > prototype against the PRD requirements (version 0.1, 2026-05-02).
 >
-> **Scope:** Phase 1 through Phase 7 of the prototype implementation.  
-> **Test baseline:** 512 tests, all passing.
+> **Scope:** Phase 1 through Phase 8 of the prototype implementation.  
+> **Test baseline:** 529 tests, all passing.
 
 ---
 
@@ -61,7 +61,7 @@
 | NFR-12 | Latency targets | Not specified (to be agreed; T-15) |
 | NFR-13 | Graceful degradation on dependency failure | Done — KB miss → Tier 2 fallback |
 | NFR-14 | System behaviour measurable | Done — Telemetry events (prototype) |
-| NFR-15 | Regressions detectable before deployment | Done — 512-test suite with coverage of all core behaviours |
+| NFR-15 | Regressions detectable before deployment | Done — 529-test suite with coverage of all core behaviours |
 
 ### Integration Requirements
 
@@ -104,6 +104,7 @@
 | /audit/verify endpoint returns structured result | test_api_endpoints.py | Pass |
 | All five demo scenarios pass end-to-end | test_demo_scenarios.py | Pass |
 | Telemetry records only safe high-level events | test_telemetry.py | Pass |
+| LLM readiness: mock provider deterministic; task validation; sanitization | test_llm_provider.py | Pass |
 
 ---
 
@@ -121,6 +122,7 @@
 | Cross-tenant access raises TenantAccessError | app/db/repositories/ | test_tenant_isolation.py |
 | /audit/verify never returns raw payload content | app/main.py | test_api_endpoints.py::TestAuditVerify |
 | Telemetry records no sensitive payloads | app/services/telemetry.py | test_telemetry.py::TestTelemetrySafety |
+| LLMRequest rejects unsupported tasks; no sensitive diagnostics in sanitizer output | app/services/llm_provider.py | test_llm_provider.py |
 
 ---
 
@@ -137,8 +139,9 @@
 | 5 | 85 | 382 | SLA tracker, FakeClock, escalation engine, communication policy |
 | 6 | 76 | 458 | HandoffBuilder, AuditLogger, /audit/verify endpoint |
 | **7** | **54 net** | **512** | **Demo scenarios, telemetry, documentation presence** |
+| **8** | **17 net** | **529** | **LLM provider contract, MockLLMProvider, sanitization, integration notes** |
 
-**512 / 512 tests passing.  No skipped tests.**
+**529 / 529 tests passing.  No skipped tests.**
 
 ---
 
@@ -149,7 +152,7 @@ as deferred requirements in `docs/requirements_traceability.md`.
 
 | Limitation | Impact | Mitigation in prototype |
 |---|---|---|
-| No real LLM | FirstResponseGenerator uses template, not LLM | Deterministic KB-grounded output; same grounding constraint applies to real LLM |
+| No real LLM inference | `MockLLMProvider` + deterministic agents; orchestrator unchanged | LLM-ready `LLMProvider` contract for production; same grounding and redaction rules apply to any future model |
 | No real JIRA write | Tickets stored in SQLite only | Full ticket model defined; JIRA write is a drop-in adapter |
 | No real Slack/WhatsApp outbound | Escalation and first response are not delivered | CommunicationPolicy gate + EscalationEngine are fully wired; outbound is a stub |
 | SLA deadlines not persisted to Ticket columns | Lost on process restart | SLATracker._states is in-memory (same request lifecycle); production would persist to DB |

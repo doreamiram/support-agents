@@ -14,11 +14,11 @@ setup instructions.  No real Slack, JIRA, WhatsApp, or LLM account is needed.
 # Activate the virtual environment (if not already active)
 .\.venv\Scripts\Activate.ps1
 
-# Verify the test suite is clean (512 tests, no failures)
+# Verify the test suite is clean (529 tests, no failures)
 .\.venv\Scripts\pytest.exe -q
 ```
 
-Expected baseline: `512 passed`.
+Expected baseline: `529 passed`.
 
 ---
 
