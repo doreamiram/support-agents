@@ -13,6 +13,12 @@
   var lastRunStatus = document.getElementById("last-run-status");
   var scenarioCount = document.getElementById("scenario-count");
   var testBaseline = document.getElementById("test-baseline");
+  var llmProviderMode = document.getElementById("llm-provider-mode");
+  var realLlmEnabled = document.getElementById("real-llm-enabled");
+  var fallbackUsed = document.getElementById("fallback-used");
+  var lastLlmCallStatus = document.getElementById("last-llm-call-status");
+  var llmTasksEnabled = document.getElementById("llm-tasks-enabled");
+  var llmDemoSummary = document.getElementById("llm-demo-summary");
 
   var staticSnapshot = null;
 
@@ -23,10 +29,20 @@
   function setRunSummary(data, modeLabel, statusLabel) {
     var scenarios = data && data.scenarios ? data.scenarios : [];
     var meta = data && data.meta ? data.meta : {};
+    var providerStatus = data && data.llm_provider_status ? data.llm_provider_status : {};
     setText(backendMode, modeLabel);
     setText(lastRunStatus, statusLabel);
     setText(scenarioCount, String(scenarios.length));
-    setText(testBaseline, meta.tests_baseline || "549/549");
+    setText(testBaseline, meta.tests_baseline || "557/557");
+    setText(llmProviderMode, meta.llm_provider_mode || providerStatus.provider_mode || "mock");
+    setText(realLlmEnabled, String(meta.real_llm_enabled === true || providerStatus.real_llm_enabled === true));
+    setText(fallbackUsed, String(meta.fallback_used === true || providerStatus.fallback_used === true));
+    setText(lastLlmCallStatus, meta.last_llm_call_status || providerStatus.last_call_status || "skipped");
+    setText(
+      llmTasksEnabled,
+      Array.isArray(meta.llm_tasks_enabled) ? meta.llm_tasks_enabled.join(", ") : "demo_summary, handoff_summary, customer_response_polish"
+    );
+    setText(llmDemoSummary, data.llm_summary || "No generated summary available.");
   }
 
   function showFallback(message) {
@@ -98,6 +114,17 @@
           trace.appendChild(item);
         });
         article.appendChild(trace);
+      }
+
+      if (s.llm_handoff_summary || s.llm_customer_response_polish) {
+        var llmHeading = document.createElement("h4");
+        llmHeading.textContent = s.llm_handoff_summary ? "Handoff Summary" : "Polished Customer Response";
+        article.appendChild(llmHeading);
+
+        var llmText = document.createElement("p");
+        llmText.className = "llm-generated";
+        llmText.textContent = s.llm_handoff_summary || s.llm_customer_response_polish;
+        article.appendChild(llmText);
       }
 
       cardsEl.appendChild(article);

@@ -1,19 +1,20 @@
 ﻿# Modelyo Support Agents ג€” Handoff Document
 
 **Generated:** 2026-05-11  
-**Last updated:** 2026-05-17 (Phase 10A complete)  
-**Status:** Phase 10A complete - 549/549 tests passing; live backend-driven web demo added
+**Last updated:** 2026-05-17 (Phase 10B complete)
+**Status:** Phase 10B complete - 557/557 tests passing; optional real LLM provider added safely behind feature flags; mock remains default fallback
 
 ---
 
 ## 1. Current Project Status
 
-Phase 10A is **complete** with 549/549 tests passing. The browser demo now keeps the Phase 9 static
-snapshot fallback and adds a local live backend path through
-`GET /api/demo/scenarios`. The endpoint reuses `demo.scenarios` and returns only
-safe scenario fields plus high-level execution traces. No real LLM provider,
-API keys, new dependencies, `package.json`, schema changes, or live external
-integrations were added.
+Phase 10B is **complete** with 557/557 tests passing. Phase 10A's browser demo keeps the Phase 9 static
+snapshot fallback and local live backend path through `GET /api/demo/scenarios`.
+Phase 10B adds `RealLLMProvider` behind `USE_REAL_LLM=true`, with
+`MockLLMProvider` still selected by default and used as the safe fallback for
+missing config, timeout, HTTP error, or malformed provider output. No API keys,
+new dependencies, `package.json`, schema changes, or live Slack/JIRA/WhatsApp/
+PagerDuty integrations were added.
 
 ---
 
@@ -33,6 +34,34 @@ integrations were added.
 | **8** | **LLM readiness layer (`LLMProvider`, `MockLLMProvider`, sanitization, docs)** | **529 total** | **ג… Complete** |
 | **9** | **Static Vercel-ready visual web demo (`web-demo/`), regression tests** | **537 total** | **ג… Complete** |
 | **10A** | **Live backend-driven web demo endpoint + static fallback** | **549 total** | **Complete** |
+| **10B** | **Optional RealLLMProvider + safe demo LLM tasks + provider status UI** | **Pending final verification** | **Complete** |
+
+---
+
+## 3g. Phase 10B Status
+
+**Approved scope:** `app/services/llm_provider.py`,
+`app/services/real_llm_provider.py`, `demo/scenarios.py`, `web-demo/`,
+`tests/test_llm_provider.py`, `tests/test_api_endpoints.py`,
+`tests/test_web_demo_static.py`, `.env.example`, README/HANDOFF/docs updates.
+
+**Code status:** `RealLLMProvider` uses stdlib HTTP only and supports
+`demo_summary`, `handoff_summary`, and `customer_response_polish`. Provider
+selection defaults to `MockLLMProvider`; real mode requires `USE_REAL_LLM=true`,
+`LLM_PROVIDER=generic_http`, `LLM_API_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL`.
+The live demo payload includes browser-safe provider metadata and optional safe
+generated content. Current verification is 557/557 tests passing and 5/5 CLI
+demo scenarios passing.
+
+**Safety boundaries:** The LLM is not used for routing, security, SLA,
+escalation, identity, classification, KB confidence, or prompt-injection
+decisions. Demo LLM context is limited to high-level sanitized scenario fields,
+status, actions, reasons, PRD labels, trace step names, deterministic handoff
+summary fields, and the grounded Tier 1 response preview.
+
+**Confirmations:** No API key committed; no SDK dependency; no package manager
+changes; no `app/db/*` or `app/agents/*` changes; no real Slack/JIRA/WhatsApp/
+PagerDuty integrations.
 
 ---
 
@@ -227,7 +256,7 @@ or `app/db/*`; no real Slack/JIRA/WhatsApp/PagerDuty integrations.
 ### `tests/test_telemetry.py` (21 tests)
 - `TestTelemetryBasic` (5): instantiation, record known type, initially empty, multiple events, zero count for absent type
 - `TestTelemetryEventTypes` (11): all 8 allowed event types recordable; unknown type raises ValueError; record without metadata succeeds
-- `TestTelemetrySafety` (9): metadata copied not shared; events() returns copy; no `raw_payload` in allowed types; no `payload`/`customer_data` in event names; summary returns correct counts; events have ISO timestamps; events are TelemetryEvent instances; multiple records of same type accumulate
+- `TestTelemetrySafety` (9): metadata copied not shared; events() returns copy; no raw payload event type is allowed; no `payload`/`customer_data` in event names; summary returns correct counts; events have ISO timestamps; events are TelemetryEvent instances; multiple records of same type accumulate
 
 ### Removed guard tests (net -2)
 - Removed `TestPhase7NotImplemented` (1) from `tests/test_api_endpoints.py`
@@ -434,7 +463,7 @@ To evaluate the prototype:
 ```powershell
 cd c:\modelyo-support-agents
 
-# Run all 549/549 tests
+# Run all 557/557 tests
 .\.venv\Scripts\pytest.exe -q
 
 # Run the demo

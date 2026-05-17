@@ -3,9 +3,9 @@
 Agentic Tier 1 / Tier 2 customer support prototype for Modelyo Confidential Cloud
 enterprise customers.
 
-> **Status:** Phase 10A complete — 549/549 tests passing, with a live
-> backend-driven web demo added on top of the historical 537/537 Phase 9
-> baseline. See `docs/design_document.md`
+> **Status:** Phase 10B complete — optional real LLM provider support added
+> behind safe feature flags, with `MockLLMProvider` still the default fallback.
+> Current Phase 10B baseline is 557/557 tests passing. See `docs/design_document.md`
 > for architecture details, `docs/llm_integration_notes.md` for LLM readiness, and
 > `docs/demo_guide.md` for CLI and optional visual demo instructions.
 
@@ -40,7 +40,7 @@ are simulated / stubbed:
 
 | What is simulated | Why |
 |---|---|
-| LLM responses | `MockLLMProvider` + deterministic agents: no external inference; real LLM is a production extension (see `docs/llm_integration_notes.md`) |
+| LLM responses | `MockLLMProvider` by default; optional `RealLLMProvider` is limited to safe demo summaries and falls back to mock on missing config, timeout, or failure |
 | JIRA ticket write | Tickets stored in in-memory / local SQLite only |
 | Slack outbound messages | No real Slack API calls |
 | WhatsApp outbound messages | No real WhatsApp Business API calls |
@@ -49,7 +49,7 @@ are simulated / stubbed:
 
 What **is real**:
 
-- **LLM-ready service layer** — `LLMProvider` contract and `MockLLMProvider` for deterministic, safe, reproducible behaviour (not wired into the orchestrator in Phase 8)
+- **LLM provider layer** — `LLMProvider`, `MockLLMProvider`, and optional stdlib-only `RealLLMProvider` for controlled demo enrichment tasks; deterministic agents remain authoritative
 - Full deterministic classification, diagnostics, and KB retrieval pipeline
 - Tamper-evident audit hash chain (SHA-256) in SQLite
 - SLA breach detection with configurable severity rules
@@ -83,7 +83,7 @@ Inbound event (JIRA / Slack / WhatsApp webhook)
         +-- Escalation Engine  on-call chain; simulated actions
         +-- Handoff Builder    structured packet for Tier 2 engineer
         +-- Audit Logger       every decision written to hash chain
-        +-- LLM readiness      LLMProvider + MockLLMProvider (optional extension path)
+        +-- LLM provider       Mock default + optional RealLLMProvider for safe demo text
 ```
 
 See `docs/design_document.md` for a detailed description of each component.
@@ -129,7 +129,7 @@ Interactive docs: `http://127.0.0.1:8000/docs`
 ## Run tests
 
 ```powershell
-# Full suite (549/549 tests)
+# Full suite (557/557 tests)
 .\.venv\Scripts\pytest.exe
 
 # Quiet summary
@@ -163,7 +163,9 @@ to present them to a reviewer.
 The `web-demo/` folder is a no-build browser demo of the five scenarios (HTML,
 CSS, JS, and `demo-data.json`). It loads the static snapshot by default and can
 call the local FastAPI backend for a live run at `GET /api/demo/scenarios`.
-The static snapshot remains available for hosted presentation fallback.
+The page shows LLM Provider Status, the safe demo summary, Tier 2 handoff
+summaries, and the Tier 1 polished customer response when present. The static
+snapshot remains available for hosted presentation fallback.
 
 Start the backend:
 
@@ -188,15 +190,35 @@ no API keys. The executable pipeline and full regression coverage remain:
 .\.venv\Scripts\pytest.exe -q
 ```
 
-No real LLM inference and no live Slack, JIRA, or WhatsApp integrations are used
-anywhere in this repository.
+Real LLM inference is optional and disabled by default. No live Slack, JIRA,
+WhatsApp, PagerDuty, or other external support integrations are used anywhere in
+this repository.
+
+### Optional RealLLMProvider
+
+`MockLLMProvider` is selected unless `USE_REAL_LLM=true` and all required
+settings are present:
+
+```powershell
+USE_REAL_LLM=false
+LLM_PROVIDER=generic_http
+LLM_API_BASE_URL=
+LLM_API_KEY=
+LLM_MODEL=
+LLM_TIMEOUT_SECONDS=10
+```
+
+The real provider uses only stdlib HTTP, adds no SDK dependency, and is limited
+to `demo_summary`, `handoff_summary`, and `customer_response_polish`. It never
+drives routing, security, SLA, escalation, identity, classification, KB
+confidence, or prompt-injection decisions. On missing config, timeout, HTTP
+error, or malformed response, the demo falls back safely to `MockLLMProvider`.
 
 ## Key design choices
 
 - **Deterministic orchestration** — the orchestrator and Tier 1/Tier 2 agents
   remain rule-based and reproducible; they are the **source of truth** for tests
-  and safety. `MockLLMProvider` is an optional readiness stub, not a dependency
-  of the demo.
+  and safety. `MockLLMProvider` is the default LLM provider and safe fallback.
 - **ClockProvider abstraction** — `FakeClock` enables SLA breach tests and demo
   time-travel without real delays.
 - **Data classification on every field** — PUBLIC / INTERNAL / CONFIDENTIAL /
@@ -215,17 +237,18 @@ anywhere in this repository.
   `TenantAccessError`.
 - Webhook payloads are verified with HMAC-SHA256 before parsing.
 - Duplicate events are rejected via `event_id` deduplication.
-- Injection-flagged messages are quarantined to Tier 2; the original text is
-  preserved in `raw_payload` for audit only.
+- Injection-flagged messages are quarantined to Tier 2; the original channel
+  payload is retained only for audit handling and is not exposed to LLM tasks.
 - Credentials and secrets are redacted before any log sink or outbound message.
 
 ---
 
 ## What would be needed for production
 
-1. **Real LLM hosting** — implement a production `LLMProvider` behind the Phase 8
-   contract; evaluate managed vs. self-hosted options against Modelyo's
-   confidential-computing posture (PRD T-02 / D-01). See `docs/llm_integration_notes.md`.
+1. **Production LLM hosting decision** — Phase 10B includes a generic optional
+   HTTP provider for safe demo tasks only; production still needs an approved
+   managed vs. self-hosted decision against Modelyo's confidential-computing
+   posture (PRD T-02 / D-01). See `docs/llm_integration_notes.md`.
 2. **JIRA Service Desk API** — ticket write, field update, comment threading.
 3. **Real channel outbound** — Slack Bot API, WhatsApp Business API (with
    Meta-approved templates for out-of-session messages).

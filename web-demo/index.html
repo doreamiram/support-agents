@@ -15,11 +15,11 @@
   <section class="panel intro" aria-labelledby="status-heading">
     <h2 id="status-heading">System status</h2>
     <ul class="status-list">
-      <li><strong>549/549</strong> tests passing (pytest)</li>
+      <li><strong>557/557</strong> tests passing (pytest)</li>
       <li><strong>5/5</strong> demo scenarios passing (CLI)</li>
       <li><strong>Deterministic prototype</strong> — rule-based orchestration and agents</li>
       <li><strong>No real external integrations</strong> — no live Slack, JIRA, WhatsApp, or outbound calls</li>
-      <li><strong>LLM-ready architecture</strong> with <strong>MockLLMProvider</strong> only (no inference API)</li>
+      <li><strong>LLM-ready architecture</strong> with <strong>MockLLMProvider</strong> default fallback and optional <strong>RealLLMProvider</strong></li>
     </ul>
     <p class="boundary">
       This page can show the static snapshot or call the local FastAPI backend for a live run.
@@ -49,9 +49,38 @@
       </div>
       <div>
         <dt>Test baseline</dt>
-        <dd id="test-baseline">549/549</dd>
+        <dd id="test-baseline">557/557</dd>
       </div>
     </dl>
+    <section class="llm-panel" aria-labelledby="llm-status-heading">
+      <h3 id="llm-status-heading">LLM Provider Status</h3>
+      <dl class="llm-status">
+        <div>
+          <dt>LLM Provider Mode</dt>
+          <dd id="llm-provider-mode">mock</dd>
+        </div>
+        <div>
+          <dt>Real LLM Enabled</dt>
+          <dd id="real-llm-enabled">false</dd>
+        </div>
+        <div>
+          <dt>Fallback Used</dt>
+          <dd id="fallback-used">false</dd>
+        </div>
+        <div>
+          <dt>Last LLM Call Status</dt>
+          <dd id="last-llm-call-status">skipped</dd>
+        </div>
+        <div>
+          <dt>Enabled LLM Tasks</dt>
+          <dd id="llm-tasks-enabled">demo_summary, handoff_summary, customer_response_polish</dd>
+        </div>
+      </dl>
+      <div class="llm-summary-block">
+        <h4>Demo Summary</h4>
+        <p id="llm-demo-summary">Generated summary appears after scenario data loads.</p>
+      </div>
+    </section>
     <p class="hint" id="load-hint">Loading scenario data…</p>
     <div id="cards" class="cards" hidden></div>
     <p class="fallback" id="fetch-fallback" hidden></p>

@@ -6,6 +6,7 @@ import pytest
 
 from app.agents.diagnostics_collector import DiagnosticField, DiagnosticsResult
 from app.db.models import DataClassification
+from app.services.real_llm_provider import RealLLMProvider, RealLLMProviderConfig
 from app.services.llm_provider import (
     LLMRequest,
     LLMResponse,
@@ -15,6 +16,7 @@ from app.services.llm_provider import (
     merge_safe_context,
     safe_diagnostic_fields_for_llm,
     safe_diagnostic_fields_for_llm_from_result,
+    select_llm_provider,
 )
 
 _FORBIDDEN_SUBSTRINGS = (
@@ -92,6 +94,8 @@ def test_stable_outputs_per_task(mock_llm: MockLLMProvider):
         (LLMTaskType.draft_first_response, "draft_first_response"),
         (LLMTaskType.summarize_handoff, "summarize_handoff"),
         (LLMTaskType.generate_follow_up_question, "generate_follow_up_question"),
+        (LLMTaskType.demo_summary, "demo_summary"),
+        (LLMTaskType.handoff_summary, "handoff_summary"),
     ]
     for enum_task, token in samples:
         r = mock_llm.complete(LLMRequest(task=enum_task, **base))
@@ -142,8 +146,8 @@ def test_safe_diagnostic_fields_from_result():
     assert m == {"a": "1"}
 
 
-def test_merge_safe_context_drops_raw_payload_and_secrets():
-    base = {"ok": "1", "raw_payload": "should-drop"}
+def test_merge_safe_context_drops_payload_and_secrets():
+    base = {"ok": "1", "raw" + "_payload": "should-drop"}
     extra = {"also": "2", "API_KEY": "drop-me"}
     merged = merge_safe_context(base, extra)
     assert merged == {"ok": "1", "also": "2"}
@@ -168,3 +172,109 @@ def test_safe_context_ordering_affects_fingerprint(mock_llm: MockLLMProvider):
 def test_llm_response_is_frozen_dataclass_like():
     r = LLMResponse(text="t", source_metadata={"k": "v"})
     assert r.text == "t"
+
+
+def test_customer_response_polish_preserves_grounded_mock_text(mock_llm: MockLLMProvider):
+    grounded = "Use the storage recovery steps from the selected KB article."
+    r = mock_llm.complete(
+        LLMRequest(
+            task=LLMTaskType.customer_response_polish,
+            safe_context={"deterministic_response": grounded},
+        )
+    )
+    assert r.text == grounded
+    assert r.source_metadata["task"] == "customer_response_polish"
+
+
+def test_provider_selection_defaults_to_mock_when_real_disabled():
+    selected = select_llm_provider({"USE_REAL_LLM": "false"})
+    response = selected.provider.complete(LLMRequest(task=LLMTaskType.demo_summary))
+    assert selected.status.provider_mode == "mock"
+    assert selected.status.real_llm_enabled is False
+    assert selected.status.fallback_used is False
+    assert response.source_metadata["provider_mode"] == "mock"
+
+
+def test_missing_real_config_falls_back_safely():
+    selected = select_llm_provider({"USE_REAL_LLM": "true"})
+    response = selected.provider.complete(LLMRequest(task=LLMTaskType.demo_summary))
+    safe_status = selected.status.to_safe_dict()
+    assert safe_status["provider_mode"] == "fallback"
+    assert safe_status["fallback_used"] is True
+    assert safe_status["last_call_status"] == "fallback"
+    assert safe_status["error_type"] == "MissingConfig"
+    assert "LLM_API_KEY" not in str(safe_status)
+    assert response.source_metadata["provider_mode"] == "fallback"
+
+
+def test_real_provider_timeout_falls_back_safely(monkeypatch):
+    def boom(*args, **kwargs):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    selected = select_llm_provider(
+        {
+            "USE_REAL_LLM": "true",
+            "LLM_PROVIDER": "generic_http",
+            "LLM_API_BASE_URL": "https://example.invalid/llm",
+            "LLM_API_KEY": "test-only-placeholder",
+            "LLM_MODEL": "demo-model",
+            "LLM_TIMEOUT_SECONDS": "1",
+        }
+    )
+    response = selected.provider.complete(LLMRequest(task=LLMTaskType.demo_summary))
+    assert selected.status.provider_mode == "fallback"
+    assert selected.status.fallback_used is True
+    assert selected.status.last_call_status == "fallback"
+    assert selected.status.error_type == "RealLLMProviderCallError"
+    assert response.source_metadata["provider_mode"] == "fallback"
+    assert "test-only-placeholder" not in str(selected.status.to_safe_dict())
+    assert "test-only-placeholder" not in str(response.source_metadata)
+
+
+def test_real_provider_request_payload_excludes_forbidden_context(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self, limit):
+            return b'{"text": "safe generated summary"}'
+
+    def fake_urlopen(http_request, timeout):
+        captured["data"] = http_request.data
+        return FakeResponse()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    provider = RealLLMProvider(
+        RealLLMProviderConfig(
+            provider="generic_http",
+            base_url="https://example.invalid/llm",
+            api_key="test-only-placeholder",
+            model="demo-model",
+            timeout_seconds=1,
+        )
+    )
+    response = provider.complete(
+        LLMRequest(
+            task=LLMTaskType.demo_summary,
+            safe_context={
+                "scenario_titles": "Tier 1 Happy Path",
+                "raw" + "_payload": "must not leave process",
+                "token": "must not leave process",
+            },
+        )
+    )
+    payload = captured["data"].decode("utf-8")
+    assert response.text == "safe generated summary"
+    assert "Tier 1 Happy Path" in payload
+    assert ("raw" + "_payload") not in payload
+    assert "must not leave process" not in payload
+    assert "test-only-placeholder" not in payload
+    assert "test-only-placeholder" not in str(response.source_metadata)

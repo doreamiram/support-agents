@@ -153,6 +153,50 @@ body {
   margin: 0.15rem 0 0;
 }
 
+.llm-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 0 0 1rem;
+  padding: 1rem;
+}
+
+.llm-panel h3,
+.llm-panel h4 {
+  margin: 0 0 0.6rem;
+}
+
+.llm-status {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  margin: 0 0 0.85rem;
+}
+
+.llm-status dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.llm-status dd {
+  margin: 0.15rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.llm-summary-block {
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+}
+
+.llm-summary-block p,
+.llm-generated {
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin: 0;
+}
+
 .cards { display: grid; gap: 1rem; }
 
 @media (min-width: 700px) {

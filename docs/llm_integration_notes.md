@@ -2,8 +2,8 @@
 
 This document explains how the Modelyo Support Agents prototype aligns with the
 PRD description of an **LLM-based agent system**, what is implemented today, and
-how a production text-generation backend would be introduced **without** changing
-the trust and safety posture of the deterministic pipeline.
+how optional text-generation calls are constrained **without** changing the trust
+and safety posture of the deterministic pipeline.
 
 ---
 
@@ -13,21 +13,23 @@ The PRD positions Tier 1 / Tier 2 support automation as an LLM-based system. The
 prototype remains **fully runnable without any external inference API**: routing,
 diagnostics, KB retrieval, first-response wording, SLA, escalation, and handoff
 packaging are implemented with **deterministic, test-backed agents**. Phase 8
-adds an explicit **readiness layer** so production can swap in a real model
-implementation later while preserving the same **input contracts** and
+added an explicit provider contract; Phase 10B adds an optional real provider
+for safe demo text while preserving the same **input contracts** and
 **classification-based redaction rules**.
 
 ---
 
-## 2. What exists in the prototype (Phase 8)
+## 2. What exists in the prototype (Phases 8 and 10B)
 
 | Artifact | Role |
 |---|---|
 | `LLMProvider` (`app/services/llm_provider.py`) | Abstract contract: one `complete(LLMRequest) -> LLMResponse` step. |
 | `MockLLMProvider` | Deterministic, local implementation: same request always yields the same response; **no network I/O**. |
+| `RealLLMProvider` (`app/services/real_llm_provider.py`) | Optional stdlib-only `generic_http` provider for controlled demo tasks. |
+| Provider selection | `USE_REAL_LLM=false` defaults to mock; missing config or call failure falls back to mock. |
 | `LLMRequest` / `LLMResponse` | Small structured types: task label, optional tenant and hints, `safe_context` string map, grounding metadata on output. |
 | `LLMUnsupportedTaskError` | Raised when a task string is not one of the supported task types (fail-safe at request construction). |
-| Sanitizer helpers | `safe_diagnostic_fields_for_llm*`, `merge_safe_context` — strip `CONFIDENTIAL` / `RESTRICTED` diagnostics and drop dangerous context keys (e.g. `raw_payload`, common secret key names). |
+| Sanitizer helpers | `safe_diagnostic_fields_for_llm*`, `merge_safe_context` — strip `CONFIDENTIAL` / `RESTRICTED` diagnostics and drop dangerous context keys, including raw payload and common secret-style names. |
 
 **Supported mock task types** (for future parity with production prompts):
 
@@ -35,11 +37,14 @@ implementation later while preserving the same **input contracts** and
 - `draft_first_response`
 - `summarize_handoff`
 - `generate_follow_up_question`
+- `demo_summary`
+- `handoff_summary`
+- `customer_response_polish`
 
-The **demo and full pytest suite** do not require calling `MockLLMProvider`; the
-existing orchestrator path is unchanged. The mock exists so tests and reviewers
-can reason about **safe inputs** and **deterministic outputs** before any real
-inference is enabled.
+The CLI demo and deterministic orchestrator path are unchanged. The live web demo
+uses the selected provider only after scenario execution to produce safe display
+fields. The mock exists so tests and reviewers can reason about **safe inputs**
+and **deterministic outputs** even when real inference is disabled.
 
 ---
 
@@ -56,10 +61,9 @@ Recommended integration boundaries (choose one or combine):
    **keeping classifier and handoff packet fields authoritative** for routing
    and audit.
 
-In all cases, **`InboundEvent.raw_payload` must never be passed into
-`LLMRequest`**. Channel secrets, API keys, and customer credentials stay out of
-model context; only redacted or explicitly safe fields belong in
-`safe_context`.
+In all cases, raw inbound payload content must never be passed into
+`LLMRequest`. Channel secrets, API keys, and customer credentials stay out of
+model context; only redacted or explicitly safe fields belong in `safe_context`.
 
 ---
 
@@ -89,27 +93,30 @@ code detail; the `LLMProvider` interface is the same regardless.
 
 ---
 
-## 6. Why the prototype does not call a real LLM
+## 6. Optional real inference boundaries
 
-- **Reproducibility** — CI and demos must be bitwise-stable without API keys or
-  network flakes.
-- **Safety reviews** — reviewers can audit behaviour without data leaving the
-  workstation.
-- **Cost and rate limits** — not applicable to open-source evaluation of this
-  repository.
+- **Disabled by default** — `USE_REAL_LLM=false` selects `MockLLMProvider`.
+- **Configuration gated** — real mode requires `LLM_PROVIDER=generic_http`,
+  `LLM_API_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL`.
+- **Fallback protected** — missing config, timeout, HTTP error, malformed
+  response, or provider exception returns mock output and safe status metadata.
+- **Task limited** — real mode is restricted to `demo_summary`,
+  `handoff_summary`, and `customer_response_polish`.
+- **No authority transfer** — LLM output does not decide routing, identity,
+  security, SLA, escalation, classification, KB confidence, or injection
+  handling.
 
 ---
 
-## 7. Replacing `MockLLMProvider` later
+## 7. Real provider contract
 
-1. Subclass or implement `LLMProvider` in a new module (e.g.
-   `app/services/production_llm_provider.py` — not shipped in this repo).
-2. Map `LLMRequest` to the vendor’s message format **inside that class** only.
+1. Keep real provider code behind `LLMProvider`.
+2. Map `LLMRequest` to the chosen service format **inside that class** only.
 3. Translate responses into `LLMResponse`, filling `source_metadata` with
-   grounding references (KB article id, citation ids, model id, content policy
-   version).
-4. Inject the implementation at composition root (future factory or FastAPI
-   dependency); keep **unit tests on the mock** for regression.
+   safe fields only: provider mode, task, model id, status, fallback flag, and
+   error type when relevant.
+4. Keep **unit tests on the mock** for regression and use fake local HTTP
+   responses for real-provider contract tests.
 
 ---
 
@@ -129,8 +136,7 @@ code detail; the `LLMProvider` interface is the same regardless.
 
 ## 9. Vendor-specific SDKs
 
-This repository intentionally avoids naming or importing third-party client
-packages in the readiness module. When Modelyo selects a hosting option, add the
-vendor SDK **only** behind the production `LLMProvider` implementation, keep
-keys in a secrets manager, and extend the test suite with contract tests or
-recorded fixtures as appropriate.
+This repository intentionally avoids third-party client packages for Phase 10B.
+If Modelyo later selects a vendor SDK, add it only behind the production
+`LLMProvider` implementation, keep keys in a secrets manager, and extend the test
+suite with contract tests or recorded fixtures as appropriate.

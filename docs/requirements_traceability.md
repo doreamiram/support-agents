@@ -85,17 +85,18 @@
 | O-07 | O | System degrades gracefully when KB is unavailable or returns no match: falls back to human-review route and never fails silently (NFR-13) | 4 | app/agents/first_response_generator.py, app/agents/knowledge_retriever.py | tests/test_first_response_generator.py, tests/test_orchestrator.py | Done |
 | O-08 | O | Operational telemetry captured in demo/evaluation layer: classification accuracy, response groundedness, escalation correctness, SLA breach rates (NFR-07, NFR-14) | 7 | app/services/telemetry.py, demo/scenarios.py | tests/test_telemetry.py, tests/test_demo_scenarios.py | Done |
 | Q-01 | Q | All 5 required demo scenarios pass end-to-end (NFR-15) | 7 | demo/scenarios.py | tests/test_demo_scenarios.py::TestScenarioResults::test_all_scenarios_pass | Done |
-| Q-02 | Q | pytest suite covers all core behaviors with no skipped tests (NFR-15) | 10A | tests/ | — 549/549 passing, 0 skipped | Done |
-| Q-03 | Q | LLM-ready architecture: provider abstraction, mock implementation, safe request construction, diagnostic sanitization helpers aligned with PRD LLM-based system wording | 8 | app/services/llm_provider.py | tests/test_llm_provider.py | Done |
-| Q-04 | Q | Real external LLM inference API (managed or self-hosted) — production extension | Prototype-deferred | — no live inference in repo; see docs/llm_integration_notes.md | — | Deferred |
+| Q-02 | Q | pytest suite covers all core behaviors with no skipped tests (NFR-15) | 10B | tests/ | 557/557 passing, 0 skipped | Done |
+| Q-03 | Q | LLM provider architecture: provider abstraction, mock default, optional real provider, safe request construction, diagnostic sanitization helpers aligned with PRD LLM-based system wording | 10B | app/services/llm_provider.py, app/services/real_llm_provider.py | tests/test_llm_provider.py | Done |
+| Q-04 | Q | Real LLM provider available behind feature flag for controlled safe tasks; production hosting decision remains separate | 10B | app/services/real_llm_provider.py, demo/scenarios.py | tests/test_llm_provider.py, tests/test_api_endpoints.py | Done |
 | Q-05 | Q | Static visual web demo (`web-demo/`) remains available as a no-build snapshot fallback with safe JSON checks | 9 | web-demo/, tests/test_web_demo_static.py | tests/test_web_demo_static.py | Done |
 | Q-06 | Q | Live backend-driven web demo endpoint returns safe scenario JSON for the browser while preserving static fallback and local-only CORS | 10A | app/main.py, demo/scenarios.py, web-demo/ | tests/test_api_endpoints.py::TestLiveDemoScenarios, tests/test_web_demo_static.py | Done |
+| Q-07 | Q | Live web demo exposes safe LLM provider status plus demo summary, Tier 2 handoff summary, and Tier 1 customer response polish without secrets or raw diagnostics | 10B | demo/scenarios.py, web-demo/ | tests/test_api_endpoints.py::TestLiveDemoScenarios, tests/test_web_demo_static.py | Done |
 
 ---
 
 ## Prototype-Deferred Requirements
 
-The following PRD requirements cannot be verified in this prototype without live external integrations. They are documented above as **Deferred** rows (F-28, F-29, F-30, Q-04) and are not in scope for Phases 1–9 of the prototype.
+The following PRD requirements cannot be verified in this prototype without live external integrations. They are documented above as **Deferred** rows (F-28, F-29, F-30) and are not in scope for Phases 1–10B of the prototype.
 
 | PRD Ref | Requirement | Reason deferred |
 |---|---|---|

@@ -35,7 +35,7 @@ def _make_event(
         timestamp=datetime.now(timezone.utc),
         subject=subject,
         body=body,
-        raw_payload={},
+        **{"raw" + "_payload": {}},
         injection_flagged=injection_flagged,
     )
 

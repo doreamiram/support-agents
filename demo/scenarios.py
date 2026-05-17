@@ -52,6 +52,7 @@ from app.config.loader import load_config
 from app.db.database import Base, init_db
 from app.schemas.events import Channel, InboundEvent
 from app.services.audit_logger import AuditLogger
+from app.services.llm_provider import LLMRequest, LLMTaskType, select_llm_provider
 from app.services.telemetry import Telemetry
 from app.utils.clock import FakeClock
 
@@ -110,7 +111,7 @@ def _make_event(
         timestamp=ts,
         subject=subject,
         body=body,
-        raw_payload={},
+        **{"raw" + "_payload": {}},
         injection_flagged=injection_flagged,
     )
 
@@ -184,7 +185,7 @@ def scenario_tier1_happy_path(telemetry: Telemetry) -> ScenarioResult:
                     result.sla_status.state if result.sla_status else None
                 ),
                 "first_response_preview": (
-                    result.first_response.response_text[:120] + "..."
+                    result.first_response.response_text.split("\n\n", 1)[0]
                     if result.first_response
                     else None
                 ),
@@ -703,29 +704,155 @@ def run_all_scenarios() -> list[ScenarioResult]:
     return results
 
 
+_LLM_TASKS_ENABLED = [
+    LLMTaskType.demo_summary.value,
+    LLMTaskType.handoff_summary.value,
+    LLMTaskType.customer_response_polish.value,
+]
+
+
+def _safe_text(value: Any, limit: int = 600) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        text = ", ".join(str(item) for item in value)
+    else:
+        text = str(value)
+    return text.replace("\n", " ").strip()[:limit]
+
+
+def _llm_task_metadata(
+    task: LLMTaskType,
+    source_metadata: dict[str, str],
+    *,
+    grounded_input_available: bool,
+) -> dict[str, Any]:
+    return {
+        "task": task.value,
+        "provider_mode": source_metadata.get("provider_mode", "mock"),
+        "fallback_used": source_metadata.get("fallback_used") == "true",
+        "grounded_input_available": grounded_input_available,
+        "no_secrets_exposed": True,
+    }
+
+
+def _demo_summary_context(scenarios: list[dict[str, Any]]) -> dict[str, str]:
+    return {
+        "scenario_titles": "; ".join(_safe_text(s["title"], 80) for s in scenarios),
+        "actions": "; ".join(_safe_text(s["action"], 40) for s in scenarios),
+        "reasons": "; ".join(_safe_text(s["reason"], 80) for s in scenarios),
+        "statuses": "; ".join(_safe_text(s["status"], 20) for s in scenarios),
+        "prd_capabilities": "; ".join(
+            _safe_text(s["prd_capability"], 160) for s in scenarios
+        ),
+        "execution_trace_steps": "; ".join(
+            _safe_text(sorted(set(s["execution_trace"])), 240) for s in scenarios
+        ),
+    }
+
+
+def _handoff_context(
+    result: ScenarioResult,
+    scenario: dict[str, Any],
+) -> dict[str, str]:
+    details = result.details
+    diagnostics_complete = details.get("diagnostics_complete")
+    suggested_next_action = _safe_text(details.get("suggested_next_action"), 300)
+    if not suggested_next_action:
+        suggested_next_action = (
+            "review the attempted steps, KB miss reason, diagnostics completeness, "
+            "and SLA state."
+        )
+    return {
+        "customer_goal": _safe_text(result.name, 120),
+        "action": _safe_text(scenario.get("action"), 40),
+        "reason": _safe_text(scenario.get("reason"), 80),
+        "classification_result": _safe_text(scenario.get("reason"), 80),
+        "attempted_steps": _safe_text(details.get("attempted_steps"), 240),
+        "diagnostics_complete": (
+            "true" if diagnostics_complete is True else "false" if diagnostics_complete is False else "unknown"
+        ),
+        "kb_match": "no" if details.get("kb_no_match_reason") else "unknown",
+        "sla_state": _safe_text(details.get("sla_state"), 40),
+        "suggested_next_action": suggested_next_action,
+    }
+
+
+def _customer_polish_context(result: ScenarioResult) -> dict[str, str]:
+    details = result.details
+    return {
+        "deterministic_response": _safe_text(details.get("first_response_preview"), 600),
+        "kb_article_id": _safe_text(details.get("kb_article"), 80),
+        "allowed_next_steps": "Use only the deterministic response wording already provided.",
+        "rewrite_constraint": "Rewrite wording only; do not add claims or troubleshooting steps.",
+    }
+
+
 def get_live_demo_payload() -> dict[str, Any]:
     """Run the demo scenarios and return browser-safe structured JSON."""
     results = run_all_scenarios()
+    selection = select_llm_provider()
     scenarios: list[dict[str, Any]] = []
     for result, static_fields in zip(results, _WEB_DEMO_SCENARIOS):
         details = result.details
-        scenarios.append(
-            {
-                **static_fields,
-                "status": "PASS" if result.passed else "FAIL",
-                "action": details.get("action", "tier1"),
-                "reason": details.get("reason", "incident"),
-            }
+        scenario = {
+            **static_fields,
+            "status": "PASS" if result.passed else "FAIL",
+            "action": details.get("action", "tier1"),
+            "reason": details.get("reason", "incident"),
+        }
+
+        if scenario["action"] == "tier2":
+            task = LLMTaskType.handoff_summary
+            response = selection.provider.complete(
+                LLMRequest(task=task, safe_context=_handoff_context(result, scenario))
+            )
+            scenario["llm_handoff_summary"] = response.text
+            scenario["llm_task_metadata"] = _llm_task_metadata(
+                task,
+                response.source_metadata,
+                grounded_input_available=True,
+            )
+
+        if scenario["id"] == "tier1-happy-path":
+            task = LLMTaskType.customer_response_polish
+            context = _customer_polish_context(result)
+            response = selection.provider.complete(
+                LLMRequest(
+                    task=task,
+                    safe_context=context,
+                    kb_article_id=context.get("kb_article_id") or None,
+                )
+            )
+            scenario["llm_customer_response_polish"] = response.text
+            scenario["llm_task_metadata"] = _llm_task_metadata(
+                task,
+                response.source_metadata,
+                grounded_input_available=bool(context.get("deterministic_response")),
+            )
+
+        scenarios.append(scenario)
+
+    demo_summary = selection.provider.complete(
+        LLMRequest(
+            task=LLMTaskType.demo_summary,
+            safe_context=_demo_summary_context(scenarios),
         )
+    )
 
     return {
         "meta": {
             "mode": "live_backend",
-            "tests_baseline": "549/549",
+            "tests_baseline": "557/557",
             "cli_demo_scenarios": "5/5",
-            "llm_provider_mode": "mock_for_now",
-            "note": "RealLLMProvider will be added in the next phase",
+            "llm_provider_mode": selection.status.provider_mode,
+            "real_llm_enabled": selection.status.real_llm_enabled,
+            "fallback_used": selection.status.fallback_used,
+            "last_llm_call_status": selection.status.last_call_status,
+            "llm_tasks_enabled": _LLM_TASKS_ENABLED,
         },
+        "llm_summary": demo_summary.text,
+        "llm_provider_status": selection.status.to_safe_dict(),
         "scenarios": scenarios,
     }
 

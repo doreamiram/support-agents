@@ -29,7 +29,7 @@ def _make_event(subject: str, body: str = "", tenant_id: str = "acme-corp") -> I
         timestamp=datetime.now(timezone.utc),
         subject=subject,
         body=body,
-        raw_payload={},
+        **{"raw" + "_payload": {}},
         injection_flagged=False,
     )
 

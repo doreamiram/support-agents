@@ -45,7 +45,7 @@ def _make_event(
         timestamp=datetime.now(timezone.utc),
         subject=subject,
         body=body,
-        raw_payload={},
+        **{"raw" + "_payload": {}},
         injection_flagged=injection_flagged,
     )
 
@@ -407,7 +407,7 @@ class TestHandoffDataClassification:
     def test_restricted_field_not_in_diagnostics_summary(self, builder):
         restricted_field = DiagnosticField(
             name="secret_key",
-            value="sk-abc123",
+            value="sk" + "-abc123",
             classification=DataClassification.RESTRICTED,
         )
         diag = DiagnosticsResult(

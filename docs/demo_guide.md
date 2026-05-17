@@ -8,17 +8,18 @@
 ## Prerequisites
 
 Python 3.12 and the virtual environment must be set up.  See `README.md` for
-setup instructions.  No real Slack, JIRA, WhatsApp, or LLM account is needed.
+setup instructions.  No real Slack, JIRA, WhatsApp, PagerDuty, or LLM account is
+needed for the default demo.
 
 ```powershell
 # Activate the virtual environment (if not already active)
 .\.venv\Scripts\Activate.ps1
 
-# Verify the test suite is clean (549/549 tests, no failures)
+# Verify the test suite is clean (557/557 tests, no failures)
 .\.venv\Scripts\pytest.exe -q
 ```
 
-Expected baseline: `549 passed` (`549/549`).
+Expected baseline: `557 passed` (`557/557`).
 
 ---
 
@@ -44,9 +45,11 @@ python -m http.server 8080
 Open `http://127.0.0.1:8080/`. The page shows the static snapshot first. Click
 **Run Live Demo** to call the backend and render live results. Each card shows
 **status PASS**, **action**, **reason**, **key result**, **PRD capability**,
-**simulated vs real** notes, and a safe high-level execution trace. If the
-backend is unavailable, the page displays: `Live backend unavailable, showing
-static snapshot.`
+**simulated vs real** notes, and a safe high-level execution trace. Phase 10B
+also shows an **LLM Provider Status** panel, a safe **Demo Summary**, Tier 2
+**Handoff Summary** text where available, and a Tier 1 **Polished Customer
+Response** where grounded input exists. If the backend is unavailable, the page
+displays: `Live backend unavailable, showing static snapshot.`
 
 For static hosting, deploy `web-demo/` as the Vercel root with no build step.
 Hosted mode uses the static snapshot fallback; no API keys or real external
@@ -54,7 +57,9 @@ integrations are needed.
 
 **Visual demo vs CLI demo:** the CLI (`python -m demo.scenarios`) remains the
 authoritative executable demo. The live web endpoint reuses the same scenario
-runner and returns only browser-safe fields.
+runner and returns only browser-safe fields. Optional real LLM mode is limited to
+safe demo enrichment text and never changes routing, SLA, escalation,
+classification, identity, security, or KB-confidence decisions.
 
 ---
 
@@ -80,10 +85,10 @@ The demo exits with code `0` on success, `1` on any scenario failure.
 
 ### Setup statement (30 seconds)
 
-> "This prototype demonstrates a fully deterministic Tier 1 / Tier 2 support
-> agent pipeline for Modelyo Confidential Cloud.  No real LLM, no real Slack,
-> no real JIRA — every component uses a deterministic mock so you can run and
-> verify the logic independently of live credentials."
+> "This prototype demonstrates a deterministic Tier 1 / Tier 2 support agent
+> pipeline for Modelyo Confidential Cloud. Mock LLM mode is the default, and the
+> optional real LLM provider is limited to safe demo summaries. No real Slack,
+> JIRA, WhatsApp, or PagerDuty integration is needed to run or verify the logic."
 
 ---
 
@@ -229,11 +234,11 @@ When reviewers ask about the database:
 
 When reviewers ask about the LLM:
 
-> "The FirstResponseGenerator uses a deterministic KB-grounded template.  In
-> production this call is replaced by an LLM prompt that cites the same KB
-> article — the grounding constraint (FR-13: every claim must be traceable to
-> an authoritative source) is enforced at the retrieval layer, not the generation
-> layer, so it holds regardless of which LLM is used."
+> "The deterministic orchestrator and agents remain the source of truth.
+> `MockLLMProvider` is the default, and Phase 10B adds an optional stdlib-only
+> `RealLLMProvider` for `demo_summary`, `handoff_summary`, and
+> `customer_response_polish` only. If real LLM configuration is missing or a call
+> fails, the demo falls back to mock output and continues."
 
 ---
 

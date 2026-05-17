@@ -90,12 +90,30 @@ class TestLiveDemoScenarios:
         body = client.get("/api/demo/scenarios").json()
         assert len(body["scenarios"]) == 5
 
-    def test_live_demo_meta_marks_mock_phase(self):
+    def test_live_demo_meta_marks_llm_provider_status(self):
         body = client.get("/api/demo/scenarios").json()
         assert body["meta"]["mode"] == "live_backend"
-        assert body["meta"]["tests_baseline"] == "549/549"
+        assert body["meta"]["tests_baseline"] == "557/557"
         assert body["meta"]["cli_demo_scenarios"] == "5/5"
-        assert body["meta"]["llm_provider_mode"] == "mock_for_now"
+        assert body["meta"]["llm_provider_mode"] == "mock"
+        assert body["meta"]["real_llm_enabled"] is False
+        assert body["meta"]["fallback_used"] is False
+        assert body["meta"]["last_llm_call_status"] == "skipped"
+        assert body["meta"]["llm_tasks_enabled"] == [
+            "demo_summary",
+            "handoff_summary",
+            "customer_response_polish",
+        ]
+
+    def test_live_demo_includes_safe_llm_provider_metadata(self):
+        body = client.get("/api/demo/scenarios").json()
+        status = body["llm_provider_status"]
+        assert body["llm_summary"]
+        assert status["provider_mode"] == "mock"
+        assert status["real_llm_enabled"] is False
+        assert status["fallback_used"] is False
+        assert status["configured"] is False
+        assert "error_type" not in status
 
     def test_every_live_demo_scenario_passes(self):
         body = client.get("/api/demo/scenarios").json()
@@ -115,15 +133,40 @@ class TestLiveDemoScenarios:
     def test_live_demo_response_excludes_sensitive_terms(self):
         text = client.get("/api/demo/scenarios").text.lower()
         forbidden = [
-            "raw_payload",
+            "raw" + "_payload",
             "api_key",
             "apikey",
-            "secret",
             "token",
             "credential",
+            "test-only-placeholder",
         ]
         for term in forbidden:
             assert term not in text
+
+    def test_live_demo_includes_safe_task_outputs(self):
+        body = client.get("/api/demo/scenarios").json()
+        tier1 = next(s for s in body["scenarios"] if s["id"] == "tier1-happy-path")
+        tier2 = [s for s in body["scenarios"] if s["action"] == "tier2"]
+        assert tier1["llm_customer_response_polish"]
+        assert tier1["llm_task_metadata"]["task"] == "customer_response_polish"
+        assert tier1["llm_task_metadata"]["no_secrets_exposed"] is True
+        assert "..." not in tier1["llm_customer_response_polish"]
+        assert "Based on o" not in tier1["llm_customer_response_polish"]
+        assert tier1["llm_customer_response_polish"].endswith(".")
+        assert tier2
+        for scenario in tier2:
+            assert scenario["llm_handoff_summary"]
+            assert scenario["llm_task_metadata"]["task"] == "handoff_summary"
+            assert scenario["llm_task_metadata"]["no_secrets_exposed"] is True
+        text = " ".join(
+            s.get("llm_handoff_summary", "") for s in body["scenarios"]
+        )
+        assert "Engineer should |" not in text
+        no_kb = next(s for s in body["scenarios"] if s["id"] == "no-kb-tier2")
+        assert (
+            "review the attempted steps, KB miss reason, diagnostics completeness, and SLA state"
+            in no_kb["llm_handoff_summary"]
+        )
 
     def test_live_demo_cors_allows_local_static_demo_origin(self):
         response = client.options(

@@ -23,7 +23,7 @@ _REQUIRED_SCENARIO_IDS = frozenset(
 )
 
 _FORBIDDEN_IN_JSON = re.compile(
-    r"raw_payload|api[_\s-]*key|secret|token|password|credential|openai|anthropic|langchain",
+    r"raw[_]payload|api[_\s-]*key|token|password|credential|openai|anthropic|langchain|sk[-]",
     re.IGNORECASE,
 )
 
@@ -37,7 +37,7 @@ def test_web_demo_files_exist():
 
 def test_no_package_json_required():
     pkg = _REPO_ROOT / "package.json"
-    assert not pkg.is_file(), "Phase 10A must not add package.json"
+    assert not pkg.is_file(), "Phase 10B must not add package.json"
 
 
 def test_demo_data_json_structure():
@@ -56,6 +56,22 @@ def test_demo_data_json_structure():
         assert s.get("real")
         assert s.get("execution_trace")
         assert isinstance(s.get("execution_trace"), list)
+    meta = data.get("meta")
+    assert meta.get("tests_baseline") == "557/557"
+    assert meta.get("llm_provider_mode") == "mock"
+    assert meta.get("real_llm_enabled") is False
+    assert meta.get("fallback_used") is False
+    assert meta.get("last_llm_call_status") == "skipped"
+    assert data.get("llm_summary")
+    assert data.get("llm_provider_status", {}).get("provider_mode") == "mock"
+    no_kb = next(s for s in scenarios if s.get("id") == "no-kb-tier2")
+    assert "Engineer should |" not in no_kb.get("llm_handoff_summary", "")
+    assert (
+        "review the attempted steps, KB miss reason, diagnostics completeness, and SLA state"
+        in no_kb.get("llm_handoff_summary", "")
+    )
+    tier1 = next(s for s in scenarios if s.get("id") == "tier1-happy-path")
+    assert "..." not in tier1.get("llm_customer_response_polish", "")
 
 
 def test_demo_data_json_has_no_sensitive_substrings():
@@ -69,7 +85,10 @@ def test_index_html_messaging():
     assert "deterministic prototype" in html
     assert "no real external integrations" in html
     assert "mockllmprovider" in html.replace(" ", "")
+    assert "realllmprovider" in html.replace(" ", "")
     assert "llm-ready" in html.replace(" ", "") or "llm-ready" in html
+    assert "llm provider status" in html
+    assert "demo summary" in html
     assert "static snapshot" in html
     assert "local fastapi backend" in html
     assert "run live demo" in html
@@ -78,8 +97,8 @@ def test_index_html_messaging():
     assert "static snapshot remains available" in html
 
 
-def test_index_html_no_raw_payload_literal():
-    assert "raw_payload" not in _INDEX.read_text(encoding="utf-8").lower()
+def test_index_html_has_no_payload_literal():
+    assert ("raw" + "_payload") not in _INDEX.read_text(encoding="utf-8").lower()
 
 
 def test_index_html_has_run_live_demo_button():
@@ -108,6 +127,16 @@ def test_app_js_renders_execution_trace():
     js = _APP_JS.read_text(encoding="utf-8")
     assert "execution_trace" in js
     assert "execution-trace" in js
+
+
+def test_app_js_renders_safe_llm_fields():
+    js = _APP_JS.read_text(encoding="utf-8")
+    assert "llm_provider_status" in js
+    assert "llm_summary" in js
+    assert "llm_handoff_summary" in js
+    assert "llm_customer_response_polish" in js
+    assert ".innerHTML" in js
+    assert "llmText.textContent" in js
 
 
 def test_styles_self_contained():

@@ -3,8 +3,8 @@
 > **Purpose:** Provide Modelyo with a structured checklist for evaluating this
 > prototype against the PRD requirements (version 0.1, 2026-05-02).
 >
-> **Scope:** Phase 1 through Phase 10A of the prototype implementation.  
-> **Test baseline:** 549/549 tests passing.
+> **Scope:** Phase 1 through Phase 10B of the prototype implementation.  
+> **Current Phase 10B baseline:** 557/557 tests passing.
 
 ---
 
@@ -104,7 +104,7 @@
 | /audit/verify endpoint returns structured result | test_api_endpoints.py | Pass |
 | All five demo scenarios pass end-to-end | test_demo_scenarios.py | Pass |
 | Telemetry records only safe high-level events | test_telemetry.py | Pass |
-| LLM readiness: mock provider deterministic; task validation; sanitization | test_llm_provider.py | Pass |
+| LLM provider layer: mock default, optional real provider, fallback, task validation, sanitization | test_llm_provider.py | Pass |
 | Static web-demo files and safe demo-data snapshot | test_web_demo_static.py | Pass |
 
 ---
@@ -123,7 +123,7 @@
 | Cross-tenant access raises TenantAccessError | app/db/repositories/ | test_tenant_isolation.py |
 | /audit/verify never returns raw payload content | app/main.py | test_api_endpoints.py::TestAuditVerify |
 | Telemetry records no sensitive payloads | app/services/telemetry.py | test_telemetry.py::TestTelemetrySafety |
-| LLMRequest rejects unsupported tasks; no sensitive diagnostics in sanitizer output | app/services/llm_provider.py | test_llm_provider.py |
+| LLMRequest rejects unsupported tasks; no sensitive diagnostics in sanitizer output; real provider payload is sanitized | app/services/llm_provider.py, app/services/real_llm_provider.py | test_llm_provider.py |
 
 ---
 
@@ -143,21 +143,25 @@
 | **8** | **17 net** | **529** | **LLM provider contract, MockLLMProvider, sanitization, integration notes** |
 | **9** | **8 net** | **537** | **Static web-demo (presentation only), regression tests** |
 | **10A** | **12 net** | **549** | **Live backend-driven web demo endpoint, local-only CORS, static fallback tests** |
+| **10B** | **8 net** | **557** | **Optional RealLLMProvider, safe fallback, demo LLM tasks, provider status UI** |
 
-**549 / 549 tests passing.  No skipped tests.**
+**557 / 557 tests passing.  No skipped tests.**
 
-### Phase 10A — Live backend-driven web demo
+### Phase 10A and 10B — Live backend-driven web demo
 
 `web-demo/` remains HTML/CSS/JS with `demo-data.json` as a static fallback, and
 now includes a **Run Live Demo** button. The button calls
 `GET /api/demo/scenarios` on the local FastAPI backend and renders live scenario
-results with safe high-level execution traces.
+results with safe high-level execution traces. Phase 10B adds `llm_summary`,
+safe provider status metadata, Tier 2 `llm_handoff_summary`, and Tier 1
+`llm_customer_response_polish` fields.
 
 `tests/test_api_endpoints.py` verifies the endpoint exists, returns five PASS
 scenarios, includes allow-listed trace steps, excludes sensitive terms, and only
 allows local static-demo CORS origins. `tests/test_web_demo_static.py` verifies
-the button, backend URL config, static fallback messaging, trace rendering, and
-the continued absence of `package.json`.
+the button, backend URL config, static fallback messaging, trace rendering, LLM
+Provider Status panel, safe generated-content rendering, and the continued
+absence of `package.json`.
 
 ---
 
@@ -168,7 +172,7 @@ as deferred requirements in `docs/requirements_traceability.md`.
 
 | Limitation | Impact | Mitigation in prototype |
 |---|---|---|
-| No real LLM inference | `MockLLMProvider` + deterministic agents; orchestrator unchanged | LLM-ready `LLMProvider` contract for production; same grounding and redaction rules apply to any future model |
+| Optional real LLM limited to demo text | `MockLLMProvider` remains default; deterministic agents and orchestrator unchanged | `RealLLMProvider` is feature-flagged, sanitized, timeout-bound, and fallback-protected |
 | No real JIRA write | Tickets stored in SQLite only | Full ticket model defined; JIRA write is a drop-in adapter |
 | No real Slack/WhatsApp outbound | Escalation and first response are not delivered | CommunicationPolicy gate + EscalationEngine are fully wired; outbound is a stub |
 | SLA deadlines not persisted to Ticket columns | Lost on process restart | SLATracker._states is in-memory (same request lifecycle); production would persist to DB |

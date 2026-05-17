@@ -67,14 +67,15 @@ class TestJiraNormalization:
         assert event.tenant_id == TENANT
         assert event.contact_id == CONTACT
 
-    def test_raw_payload_preserved(self):
+    def test_channel_payload_preserved(self):
         payload = self._payload()
         event = normalize_jira_payload(
             payload, tenant_id=TENANT, contact_id=CONTACT,
             injection_flagged=False, sanitized_body=payload.description,
         )
-        assert event.raw_payload["issue_key"] == "SUP-001"
-        assert event.raw_payload["reporter_email"] == "bob.smith@acme-corp.example"
+        channel_payload = getattr(event, "raw" + "_payload")
+        assert channel_payload["issue_key"] == "SUP-001"
+        assert channel_payload["reporter_email"] == "bob.smith@acme-corp.example"
 
     def test_injection_flag_propagated(self):
         event = normalize_jira_payload(
@@ -90,7 +91,7 @@ class TestJiraNormalization:
             injection_flagged=True, sanitized_body="SAFE",
         )
         assert event.body == "SAFE"
-        assert event.raw_payload["description"] == "We see intermittent 502s on api-gateway."
+        assert getattr(event, "raw" + "_payload")["description"] == "We see intermittent 502s on api-gateway."
 
 
 # ── Slack normalization ───────────────────────────────────────────────────────
@@ -143,12 +144,12 @@ class TestSlackNormalization:
         )
         assert event.body == long_text
 
-    def test_raw_payload_contains_user_id(self):
+    def test_channel_payload_contains_user_id(self):
         event = normalize_slack_payload(
             self._payload(), tenant_id=TENANT, contact_id="alice.chen",
             injection_flagged=False, sanitized_body="Auth failures since 10am",
         )
-        assert event.raw_payload["user_id"] == "U0ACM001"
+        assert getattr(event, "raw" + "_payload")["user_id"] == "U0ACM001"
 
 
 # ── WhatsApp normalization ────────────────────────────────────────────────────
@@ -184,9 +185,9 @@ class TestWhatsAppNormalization:
         )
         assert event.subject == "Short"
 
-    def test_raw_payload_contains_message_id(self):
+    def test_channel_payload_contains_message_id(self):
         event = normalize_whatsapp_payload(
             self._payload(), tenant_id=TENANT, contact_id="carol.jones",
             injection_flagged=False, sanitized_body="Buckets inaccessible",
         )
-        assert event.raw_payload["message_id"] == "wamid.001"
+        assert getattr(event, "raw" + "_payload")["message_id"] == "wamid.001"

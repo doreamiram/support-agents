@@ -2,9 +2,26 @@
   "meta": {
     "project": "Modelyo Support Agents",
     "visual_demo_version": 1,
-    "tests_baseline": "549/549",
+    "tests_baseline": "557/557",
     "cli_demo_scenarios": "5/5",
+    "llm_provider_mode": "mock",
+    "real_llm_enabled": false,
+    "fallback_used": false,
+    "last_llm_call_status": "skipped",
+    "llm_tasks_enabled": [
+      "demo_summary",
+      "handoff_summary",
+      "customer_response_polish"
+    ],
     "notes": "Static snapshot for presentation. Executable pipeline unchanged; run CLI demo for live results."
+  },
+  "llm_summary": "[mock:demo_summary] Demo executed safely for five backend support scenarios using sanitized scenario titles, actions, reasons, PRD capability labels, and execution trace step names only.",
+  "llm_provider_status": {
+    "configured": false,
+    "provider_mode": "mock",
+    "real_llm_enabled": false,
+    "fallback_used": false,
+    "last_call_status": "skipped"
   },
   "scenarios": [
     {
@@ -28,7 +45,15 @@
         "sla_checked",
         "escalation_evaluated",
         "audit_event_written"
-      ]
+      ],
+      "llm_customer_response_polish": "Thank you for contacting Modelyo support. We have received your report regarding your storage-service issue.",
+      "llm_task_metadata": {
+        "task": "customer_response_polish",
+        "provider_mode": "mock",
+        "fallback_used": false,
+        "grounded_input_available": true,
+        "no_secrets_exposed": true
+      }
     },
     {
       "id": "injection-tier2",
@@ -47,7 +72,15 @@
         "llm_provider_checked",
         "escalation_evaluated",
         "audit_event_written"
-      ]
+      ],
+      "llm_handoff_summary": "[mock:handoff_summary] tier2 due to injection_flagged. Engineer should Review the message for potential prompt injection and verify customer intent before processing.",
+      "llm_task_metadata": {
+        "task": "handoff_summary",
+        "provider_mode": "mock",
+        "fallback_used": false,
+        "grounded_input_available": true,
+        "no_secrets_exposed": true
+      }
     },
     {
       "id": "no-kb-tier2",
@@ -70,7 +103,15 @@
         "sla_checked",
         "escalation_evaluated",
         "audit_event_written"
-      ]
+      ],
+      "llm_handoff_summary": "[mock:handoff_summary] tier2 due to no_kb_match. Engineer should review the attempted steps, KB miss reason, diagnostics completeness, and SLA state.",
+      "llm_task_metadata": {
+        "task": "handoff_summary",
+        "provider_mode": "mock",
+        "fallback_used": false,
+        "grounded_input_available": true,
+        "no_secrets_exposed": true
+      }
     },
     {
       "id": "sla-escalation",

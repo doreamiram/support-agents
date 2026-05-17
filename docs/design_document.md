@@ -30,7 +30,7 @@ The system is organized into 15 discrete responsibilities:
 | 12 | Human Handoff Builder | Structured packet for Tier 2 engineers; CONFIDENTIAL/RESTRICTED fields excluded |
 | 13 | Audit Logger | Service wrapper + tamper-evident hash-chained audit trail in SQLite |
 | 14 | Config Loader | Load and validate all YAML config at startup |
-| 15 | LLM Readiness | `LLMProvider` + `MockLLMProvider` in `app/services/llm_provider.py`; sanitizers exclude sensitive diagnostics and forbidden context keys; not on the default orchestrator path (see `docs/llm_integration_notes.md`) |
+| 15 | LLM Provider Layer | `LLMProvider` + `MockLLMProvider` in `app/services/llm_provider.py`; optional `RealLLMProvider` in `app/services/real_llm_provider.py`; sanitizers exclude sensitive diagnostics and forbidden context keys; not used for authoritative routing or SLA decisions |
 
 ---
 
@@ -173,7 +173,7 @@ All three webhook endpoints (JIRA, Slack, WhatsApp) share the same seven-step pi
 All channels produce a single `InboundEvent` Pydantic model with:
 - `event_id`, `tenant_id`, `contact_id`, `channel` (enum: jira/slack/whatsapp)
 - `external_id` — the channel-native identifier (email for JIRA, user_id for Slack, phone number for WhatsApp)
-- `timestamp`, `subject`, `body` (sanitized), `raw_payload` (original fields, for audit)
+- `timestamp`, `subject`, `body` (sanitized), original channel payload fields for audit
 - `injection_flagged` — carried through to the orchestrator (Phase 3 decides quarantine)
 - `received_at` — gateway arrival time (defaults to `datetime.now(timezone.utc)`)
 
@@ -199,10 +199,10 @@ This design avoids the cross-tenant query problem: searching the DB by `external
 **`InjectionGuard`**
 - Scans text against 9 compiled regex patterns: `ignore-instructions`, `system-prompt`, `inst-tag`, `im-start-tag`, `im-end-tag`, `forget-training`, `jailbreak`, `dan-mode`, `disregard-previous`.
 - Returns `InjectionResult(flagged, matched_pattern, sanitized_text)`. Never raises; never rejects the event.
-- When flagged, `sanitized_text` replaces the original body with `[MESSAGE WITHHELD — potential prompt injection pattern detected]`. The original text is preserved in `raw_payload` for audit purposes.
+- When flagged, `sanitized_text` replaces the original body with `[MESSAGE WITHHELD — potential prompt injection pattern detected]`. The original text is preserved only in audit-scoped channel payload storage.
 
 **`redact(text: str) → str`**
-- Applied before any text reaches a log sink or outbound message. Covers: `password=`, `api_key=`, Bearer tokens, `sk-` prefixed keys, `ghp_` GitHub tokens, `AKIA` AWS access keys, and generic `secret=`/`token=` patterns.
+- Applied before any text reaches a log sink or outbound message. Covers passwords, API-key style fields, Bearer tokens, common model-key prefixes, GitHub tokens, AWS access keys, and generic secret/token patterns.
 
 ### Test strategy
 
@@ -379,7 +379,7 @@ KB articles are authoritative Modelyo runbooks (PUBLIC/INTERNAL scope). They con
 
 1. If `kb_result` is `KBMatch`: build a grounded response referencing the article title, article ID, and excerpt. Include a safe-field summary of diagnostics (PUBLIC and INTERNAL only).
 2. If `kb_result` is `NoMatchResult`: return the safe fallback response. No technical guidance is invented.
-3. `redact()` is applied to all response text before returning (covers passwords, API keys, Bearer tokens, sk- keys, GitHub tokens, AWS keys, generic secret= patterns).
+3. `redact()` is applied to all response text before returning (covers passwords, API keys, Bearer tokens, model-key prefixes, GitHub tokens, AWS keys, and generic secret/token patterns).
 4. CONFIDENTIAL and RESTRICTED diagnostic fields are never included in response text.
 
 **FirstResponse fields**
@@ -714,7 +714,7 @@ Tasks T-02 (LLM hosting), T-04 (trust boundaries), T-09 (SLA timing model detail
 Each scenario uses:
 - In-memory SQLite (`sqlite:///:memory:`) — no file system side effects
 - `FakeClock` — no real time elapses; SLA breach is deterministic
-- No real external integrations — no Slack, JIRA, WhatsApp, or LLM calls
+- No real external support integrations — no Slack, JIRA, WhatsApp, or PagerDuty calls; LLM calls are optional and disabled by default
 
 `ScenarioResult` (dataclass) carries: `name`, `passed`, `summary`, `details`, `error`.
 
@@ -766,26 +766,30 @@ prototype scope.
 
 ---
 
-## 16. LLM Readiness Layer (Phase 8)
+## 16. LLM Provider Layer (Phases 8 and 10B)
 
-Phase 8 introduces an explicit **LLM readiness** surface in
+Phase 8 introduced an explicit **LLM readiness** surface in
 `app/services/llm_provider.py` so the codebase matches PRD wording for an
-LLM-based agent system **without** adding external inference, API keys, or new
-dependencies.
+LLM-based agent system. Phase 10B adds an optional stdlib-only
+`RealLLMProvider` while keeping `MockLLMProvider` as the default and fallback.
 
 **Types and behaviour**
 
 - `LLMTaskType` — closed set of task labels (`classify_intent`,
-  `draft_first_response`, `summarize_handoff`, `generate_follow_up_question`).
+  `draft_first_response`, `summarize_handoff`, `generate_follow_up_question`,
+  `demo_summary`, `handoff_summary`, `customer_response_polish`).
 - `LLMRequest` — accepts `task` as `LLMTaskType` or `str`; unsupported strings
   raise `LLMUnsupportedTaskError` during construction. Carries only
   `safe_context` string maps and optional high-level hints (`category`,
-  `severity`, `component`, `kb_article_id`). **No** `raw_payload` field exists on
-  this type.
+  `severity`, `component`, `kb_article_id`). Raw inbound payload content is not
+  represented on this type.
 - `LLMResponse` — `text` plus `source_metadata` (e.g. `provider`, `task`,
   `determinism_fingerprint`, groundedness flags).
 - `MockLLMProvider` — deterministic `complete()`; identical requests produce
   identical responses; no network I/O.
+- `RealLLMProvider` — optional `generic_http` provider selected only when
+  `USE_REAL_LLM=true` and required config is present. It supports only
+  `demo_summary`, `handoff_summary`, and `customer_response_polish`.
 
 **Sanitization helpers**
 
@@ -793,27 +797,27 @@ dependencies.
   mirror the `PUBLIC` + `INTERNAL` rule used by `FirstResponseGenerator` and
   `HandoffBuilder` so `CONFIDENTIAL` and `RESTRICTED` diagnostic values never
   enter model-oriented maps.
-- `merge_safe_context` drops keys such as `raw_payload` and common secret-style
+- `merge_safe_context` drops raw-payload and common secret-style
   names (defense in depth).
 
-**Orchestrator note:** Phase 8 does **not** wire `MockLLMProvider` into
-`Orchestrator`; Tier 1 / Tier 2 behaviour and the demo remain driven by the
-existing deterministic agents. Production would inject a real `LLMProvider`
-implementation at an integration boundary described in
-`docs/llm_integration_notes.md`.
+**Orchestrator note:** Phase 10B does **not** wire LLM output into
+`Orchestrator`; Tier 1 / Tier 2 behaviour and the CLI demo remain driven by the
+existing deterministic agents. The live web demo uses the selected provider only
+for safe display fields after deterministic scenario execution has completed.
 
 **Tests:** `tests/test_llm_provider.py` covers determinism, task validation,
-sanitization, forbidden substring scan on the module source, and grounding
-metadata on `LLMResponse`.
+sanitization, provider selection, fallback behavior, safe real-provider request
+construction, and grounding metadata on `LLMResponse`.
 
 ---
 
-## 17. Visual Web Demo Layer (Phases 9 and 10A)
+## 17. Visual Web Demo Layer (Phases 9, 10A, and 10B)
 
 The `web-demo/` directory (`index.html`, `styles.css`, `app.js`, `demo-data.json`,
 `README.md`) is a no-build browser presentation of the five CLI demo scenarios.
 Phase 9 introduced the static snapshot. Phase 10A keeps that snapshot and adds
-a live local backend path through `GET /api/demo/scenarios`.
+a live local backend path through `GET /api/demo/scenarios`. Phase 10B adds
+provider status and safe LLM-generated demo text.
 
 **Purpose:** reviewer-friendly cards (action, reason, PRD mapping, simulated vs
 real) with deterministic JSON content that excludes sensitive payloads. Phase
@@ -822,15 +826,17 @@ real) with deterministic JSON content that excludes sensitive payloads. Phase
 **Live endpoint:** `app/main.py` exposes `GET /api/demo/scenarios`, which calls
 `demo.scenarios.get_live_demo_payload()`. That helper reuses
 `run_all_scenarios()` and returns only browser-safe fields: metadata, scenario
-status, action, reason, static PRD mapping, simulated/real notes, and allow-listed
-trace step names. It does not return raw events, diagnostic values, credentials,
-or audit payload content.
+status, action, reason, static PRD mapping, simulated/real notes, allow-listed
+trace step names, provider metadata, safe demo summary, Tier 2 handoff summary,
+and Tier 1 customer response polish. It does not return raw events, diagnostic
+values, credentials, endpoint URLs, prompts, provider responses, or audit payload
+content.
 
 **Local CORS:** `CORSMiddleware` is limited to `http://localhost:8080` and
 `http://127.0.0.1:8080` so the static local server can call FastAPI. It does not
 allow arbitrary origins.
 
-**Constraints:** no `npm` build, no CDN dependency, no frontend framework, no real
-LLM provider, no external service integration, and no dependency changes. Full
-behaviour remains validated by `tests/test_web_demo_static.py`,
+**Constraints:** no `npm` build, no CDN dependency, no frontend framework, no
+SDK dependency, no external support-service integration, and no dependency
+changes. Real LLM mode is optional and fallback-protected. Full behaviour remains validated by `tests/test_web_demo_static.py`,
 `tests/test_api_endpoints.py`, and the existing pytest suite.

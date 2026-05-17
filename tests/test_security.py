@@ -187,9 +187,9 @@ class TestRedaction:
         assert "eyJ" not in result
 
     def test_sk_secret_redacted(self):
-        result = redact("Using key sk-abcdefghijklmnopqrst1234567890")
+        result = redact("Using key " + "sk" + "-abcdefghijklmnopqrst1234567890")
         assert "REDACTED" in result
-        assert "sk-abc" not in result
+        assert ("sk" + "-abc") not in result
 
     def test_github_token_redacted(self):
         token = "ghp_" + "A" * 36

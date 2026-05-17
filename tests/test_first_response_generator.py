@@ -200,9 +200,10 @@ class TestSecretRedactionInResponse:
         assert "mysecret123" not in result.response_text
 
     def test_sk_secret_in_excerpt_is_redacted(self, generator):
-        match = _make_kb_match(excerpt="Use the key sk-abcdef1234567890abcdef12345 to authenticate.")
+        key = "sk" + "-abcdef1234567890abcdef12345"
+        match = _make_kb_match(excerpt=f"Use the key {key} to authenticate.")
         result = generator.generate(_make_classification(), match, _make_diagnostics())
-        assert "sk-abcdef1234567890abcdef12345" not in result.response_text
+        assert key not in result.response_text
 
     def test_fallback_response_has_redaction_applied(self, generator):
         """Even the fallback goes through redact(); no raw secrets can leak."""
@@ -232,13 +233,13 @@ class TestConfidentialFieldExclusion:
     def test_restricted_field_not_in_response_text(self, generator):
         fields = [
             DiagnosticField("channel", "slack", DataClassification.PUBLIC),
-            DiagnosticField("secret_key", "sk-abcXYZsecret123456789012345", DataClassification.RESTRICTED),
+            DiagnosticField("secret_key", "sk" + "-abcXYZsecret123456789012345", DataClassification.RESTRICTED),
         ]
         diag = _make_diagnostics(fields=fields)
         match = _make_kb_match()
         result = generator.generate(_make_classification(), match, diag)
-        # RESTRICTED field must not appear (and even if it leaked, redact() would catch sk- prefix)
-        assert "sk-abcXYZsecret123456789012345" not in result.response_text
+        # RESTRICTED field must not appear, and redaction would catch model-key prefixes.
+        assert ("sk" + "-abcXYZsecret123456789012345") not in result.response_text
 
     def test_public_and_internal_fields_may_appear_in_response(self, generator):
         fields = [

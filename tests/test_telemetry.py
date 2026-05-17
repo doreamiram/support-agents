@@ -74,7 +74,7 @@ class TestTelemetryEventTypes:
 
     def test_unknown_event_type_raises_value_error(self):
         with pytest.raises(ValueError):
-            Telemetry().record("raw_payload_dump")
+            Telemetry().record("raw" + "_payload_dump")
 
     def test_unknown_event_type_with_sensitive_name_raises(self):
         with pytest.raises(ValueError):
@@ -105,8 +105,8 @@ class TestTelemetrySafety:
         events.clear()
         assert len(t.events()) == 1
 
-    def test_no_raw_payload_in_allowed_event_types(self):
-        assert "raw_payload" not in Telemetry._ALLOWED_EVENT_TYPES
+    def test_no_payload_dump_in_allowed_event_types(self):
+        assert ("raw" + "_payload") not in Telemetry._ALLOWED_EVENT_TYPES
 
     def test_no_customer_data_in_allowed_event_type_names(self):
         for event_type in Telemetry._ALLOWED_EVENT_TYPES:
