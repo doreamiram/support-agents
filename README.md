@@ -3,7 +3,9 @@
 Agentic Tier 1 / Tier 2 customer support prototype for Modelyo Confidential Cloud
 enterprise customers.
 
-> **Status:** Phase 9 complete — 537/537 tests passing. See `docs/design_document.md`
+> **Status:** Phase 10A complete — 549/549 tests passing, with a live
+> backend-driven web demo added on top of the historical 537/537 Phase 9
+> baseline. See `docs/design_document.md`
 > for architecture details, `docs/llm_integration_notes.md` for LLM readiness, and
 > `docs/demo_guide.md` for CLI and optional visual demo instructions.
 
@@ -127,7 +129,7 @@ Interactive docs: `http://127.0.0.1:8000/docs`
 ## Run tests
 
 ```powershell
-# Full suite (537 tests)
+# Full suite (549/549 tests)
 .\.venv\Scripts\pytest.exe
 
 # Quiet summary
@@ -156,21 +158,30 @@ to present them to a reviewer.
 
 ---
 
-## Visual Web Demo (static)
+## Visual Web Demo
 
-The `web-demo/` folder is a **Vercel-ready static presentation** of the five
-scenarios (HTML, CSS, JS, and `demo-data.json`). It does **not** run the Python
-backend and does **not** replace the CLI demo. Use it for browser-based reviews
-only.
+The `web-demo/` folder is a no-build browser demo of the five scenarios (HTML,
+CSS, JS, and `demo-data.json`). It loads the static snapshot by default and can
+call the local FastAPI backend for a live run at `GET /api/demo/scenarios`.
+The static snapshot remains available for hosted presentation fallback.
+
+Start the backend:
+
+```powershell
+uvicorn app.main:app --reload
+```
+
+Start the static page:
 
 ```powershell
 cd c:\modelyo-support-agents\web-demo
 python -m http.server 8080
 ```
 
-Then open `http://127.0.0.1:8080/`. For Vercel, set the project **Root Directory**
-to `web-demo` — no `npm install`, no build step, and no API keys. The executable
-pipeline and full regression coverage remain:
+Then open `http://127.0.0.1:8080/` and use **Run Live Demo**. If the backend is
+unavailable, the page keeps showing the static snapshot. For Vercel, set the
+project **Root Directory** to `web-demo` — no `npm install`, no build step, and
+no API keys. The executable pipeline and full regression coverage remain:
 
 ```powershell
 .\.venv\Scripts\python.exe -m demo.scenarios
@@ -247,8 +258,8 @@ app/                Application source
   utils/            ClockProvider, redaction
 config/             YAML config files and KB markdown articles
 docs/               Design document, requirements traceability, demo guide, LLM integration notes
-demo/               End-to-end demo scenarios (CLI)
-web-demo/           Static visual demo (browser; presentation only)
-tests/              Full pytest suite (537 tests)
+demo/               End-to-end demo scenarios (CLI and live web payload)
+web-demo/           No-build browser demo with live button and static fallback
+tests/              Full pytest suite
 audit_logs/         Exported demo audit log examples (reference only)
 ```

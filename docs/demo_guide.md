@@ -14,33 +14,47 @@ setup instructions.  No real Slack, JIRA, WhatsApp, or LLM account is needed.
 # Activate the virtual environment (if not already active)
 .\.venv\Scripts\Activate.ps1
 
-# Verify the test suite is clean (537 tests, no failures)
+# Verify the test suite is clean (549/549 tests, no failures)
 .\.venv\Scripts\pytest.exe -q
 ```
 
-Expected baseline: `537 passed`.
+Expected baseline: `549 passed` (`549/549`).
 
 ---
 
-## Optional: Visual Web Demo (static)
+## Optional: Visual Web Demo
 
-The `web-demo/` directory is a **browser-only** snapshot of the five scenarios.
-It reads `demo-data.json` and does **not** execute `demo.scenarios` or FastAPI.
+The `web-demo/` directory loads the static `demo-data.json` snapshot by default
+and can call the local FastAPI backend for a live run of the same five scenarios.
+The live endpoint is `GET /api/demo/scenarios`.
+
+Start the backend in one PowerShell:
+
+```powershell
+uvicorn app.main:app --reload
+```
+
+Start the static page in another PowerShell:
 
 ```powershell
 cd c:\modelyo-support-agents\web-demo
 python -m http.server 8080
 ```
 
-Open `http://127.0.0.1:8080/`. Each card shows **status PASS**, **action**,
-**reason**, **key result**, **PRD capability**, and **simulated vs real** notes.
-If `fetch()` fails (common with `file://`), the page shows a fallback message —
-use the local static server above or deploy `web-demo/` as the Vercel root with
-no build step.
+Open `http://127.0.0.1:8080/`. The page shows the static snapshot first. Click
+**Run Live Demo** to call the backend and render live results. Each card shows
+**status PASS**, **action**, **reason**, **key result**, **PRD capability**,
+**simulated vs real** notes, and a safe high-level execution trace. If the
+backend is unavailable, the page displays: `Live backend unavailable, showing
+static snapshot.`
 
-**Visual demo vs CLI demo:** the CLI (`python -m demo.scenarios`) runs the real
-orchestrator and remains the authoritative executable demo. The web page is for
-reviewers who want a quick read-only walkthrough.
+For static hosting, deploy `web-demo/` as the Vercel root with no build step.
+Hosted mode uses the static snapshot fallback; no API keys or real external
+integrations are needed.
+
+**Visual demo vs CLI demo:** the CLI (`python -m demo.scenarios`) remains the
+authoritative executable demo. The live web endpoint reuses the same scenario
+runner and returns only browser-safe fields.
 
 ---
 

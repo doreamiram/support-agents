@@ -3,12 +3,14 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app.config.loader import ConfigLoadError, load_config
 from app.db.database import get_db, init_db
 from app.services.audit_logger import AuditLogger
 from app.utils.clock import FakeClock
+from demo.scenarios import get_live_demo_payload
 
 # Module-level demo clock — advances deterministically via POST /demo/advance-time.
 # Only meaningful when DEMO_MODE=true; always created but unused in production.
@@ -34,6 +36,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080", "http://127.0.0.1:8080"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
 # ── Webhook intake routes ─────────────────────────────────────────────────────
 from app.adapters.jira_adapter import router as jira_router          # noqa: E402
 from app.adapters.slack_adapter import router as slack_router        # noqa: E402
@@ -50,6 +59,17 @@ def health_check() -> dict:
 
 
 # ── Demo endpoint ─────────────────────────────────────────────────────────────
+
+@app.get("/api/demo/scenarios", tags=["demo"])
+def demo_scenarios() -> dict:
+    """
+    Run the deterministic backend demo scenarios for the browser demo.
+
+    The response is a safe projection of the scenario results. It intentionally
+    excludes raw events, payloads, credentials, and confidential diagnostics.
+    """
+    return get_live_demo_payload()
+
 
 @app.post("/demo/advance-time", tags=["demo"])
 def demo_advance_time(minutes: int = 0, hours: int = 0) -> dict:

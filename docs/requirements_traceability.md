@@ -85,10 +85,11 @@
 | O-07 | O | System degrades gracefully when KB is unavailable or returns no match: falls back to human-review route and never fails silently (NFR-13) | 4 | app/agents/first_response_generator.py, app/agents/knowledge_retriever.py | tests/test_first_response_generator.py, tests/test_orchestrator.py | Done |
 | O-08 | O | Operational telemetry captured in demo/evaluation layer: classification accuracy, response groundedness, escalation correctness, SLA breach rates (NFR-07, NFR-14) | 7 | app/services/telemetry.py, demo/scenarios.py | tests/test_telemetry.py, tests/test_demo_scenarios.py | Done |
 | Q-01 | Q | All 5 required demo scenarios pass end-to-end (NFR-15) | 7 | demo/scenarios.py | tests/test_demo_scenarios.py::TestScenarioResults::test_all_scenarios_pass | Done |
-| Q-02 | Q | pytest suite covers all core behaviors with no skipped tests (NFR-15) | 9 | tests/ | — 537/537 passing, 0 skipped | Done |
+| Q-02 | Q | pytest suite covers all core behaviors with no skipped tests (NFR-15) | 10A | tests/ | — 549/549 passing, 0 skipped | Done |
 | Q-03 | Q | LLM-ready architecture: provider abstraction, mock implementation, safe request construction, diagnostic sanitization helpers aligned with PRD LLM-based system wording | 8 | app/services/llm_provider.py | tests/test_llm_provider.py | Done |
 | Q-04 | Q | Real external LLM inference API (managed or self-hosted) — production extension | Prototype-deferred | — no live inference in repo; see docs/llm_integration_notes.md | — | Deferred |
-| Q-05 | Q | Static visual web demo (`web-demo/`) as presentation-only layer; no backend execution from browser; snapshot JSON safety checks | 9 | web-demo/, tests/test_web_demo_static.py | tests/test_web_demo_static.py | Done |
+| Q-05 | Q | Static visual web demo (`web-demo/`) remains available as a no-build snapshot fallback with safe JSON checks | 9 | web-demo/, tests/test_web_demo_static.py | tests/test_web_demo_static.py | Done |
+| Q-06 | Q | Live backend-driven web demo endpoint returns safe scenario JSON for the browser while preserving static fallback and local-only CORS | 10A | app/main.py, demo/scenarios.py, web-demo/ | tests/test_api_endpoints.py::TestLiveDemoScenarios, tests/test_web_demo_static.py | Done |
 
 ---
 

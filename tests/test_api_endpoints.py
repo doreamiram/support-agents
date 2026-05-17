@@ -68,6 +68,87 @@ class TestDemoAdvanceTime:
         assert response.status_code == 200
 
 
+class TestLiveDemoScenarios:
+    _safe_trace_steps = {
+        "intake_received",
+        "identity_verified",
+        "interaction_classified",
+        "ticket_created",
+        "diagnostics_collected",
+        "kb_retrieved",
+        "llm_provider_checked",
+        "sla_checked",
+        "escalation_evaluated",
+        "audit_event_written",
+    }
+
+    def test_live_demo_endpoint_exists(self):
+        response = client.get("/api/demo/scenarios")
+        assert response.status_code == 200
+
+    def test_live_demo_endpoint_returns_five_scenarios(self):
+        body = client.get("/api/demo/scenarios").json()
+        assert len(body["scenarios"]) == 5
+
+    def test_live_demo_meta_marks_mock_phase(self):
+        body = client.get("/api/demo/scenarios").json()
+        assert body["meta"]["mode"] == "live_backend"
+        assert body["meta"]["tests_baseline"] == "549/549"
+        assert body["meta"]["cli_demo_scenarios"] == "5/5"
+        assert body["meta"]["llm_provider_mode"] == "mock_for_now"
+
+    def test_every_live_demo_scenario_passes(self):
+        body = client.get("/api/demo/scenarios").json()
+        assert all(s["status"] == "PASS" for s in body["scenarios"])
+
+    def test_every_live_demo_scenario_has_execution_trace(self):
+        body = client.get("/api/demo/scenarios").json()
+        for scenario in body["scenarios"]:
+            assert scenario["execution_trace"]
+            assert isinstance(scenario["execution_trace"], list)
+
+    def test_live_demo_trace_contains_only_safe_step_names(self):
+        body = client.get("/api/demo/scenarios").json()
+        for scenario in body["scenarios"]:
+            assert set(scenario["execution_trace"]) <= self._safe_trace_steps
+
+    def test_live_demo_response_excludes_sensitive_terms(self):
+        text = client.get("/api/demo/scenarios").text.lower()
+        forbidden = [
+            "raw_payload",
+            "api_key",
+            "apikey",
+            "secret",
+            "token",
+            "credential",
+        ]
+        for term in forbidden:
+            assert term not in text
+
+    def test_live_demo_cors_allows_local_static_demo_origin(self):
+        response = client.options(
+            "/api/demo/scenarios",
+            headers={
+                "Origin": "http://127.0.0.1:8080",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == (
+            "http://127.0.0.1:8080"
+        )
+
+    def test_live_demo_cors_does_not_allow_broad_origin(self):
+        response = client.options(
+            "/api/demo/scenarios",
+            headers={
+                "Origin": "http://example.com",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert response.status_code == 400
+
+
 # ── Phase 6: /audit/verify endpoint ──────────────────────────────────────────
 # These tests use the `client` fixture from conftest.py, which injects an
 # in-memory SQLite database so each test has a clean, isolated audit chain.

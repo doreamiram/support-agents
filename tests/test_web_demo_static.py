@@ -1,4 +1,4 @@
-﻿"""Static web-demo (Phase 9): presentation layer only — no backend execution."""
+﻿"""Web-demo regression tests: static fallback plus optional live backend run."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def test_web_demo_files_exist():
 
 def test_no_package_json_required():
     pkg = _REPO_ROOT / "package.json"
-    assert not pkg.is_file(), "Phase 9 must not add package.json unless justified"
+    assert not pkg.is_file(), "Phase 10A must not add package.json"
 
 
 def test_demo_data_json_structure():
@@ -54,6 +54,8 @@ def test_demo_data_json_structure():
         assert s.get("prd_capability")
         assert s.get("simulated")
         assert s.get("real")
+        assert s.get("execution_trace")
+        assert isinstance(s.get("execution_trace"), list)
 
 
 def test_demo_data_json_has_no_sensitive_substrings():
@@ -68,14 +70,22 @@ def test_index_html_messaging():
     assert "no real external integrations" in html
     assert "mockllmprovider" in html.replace(" ", "")
     assert "llm-ready" in html.replace(" ", "") or "llm-ready" in html
-    assert "visual presentation layer" in html
+    assert "static snapshot" in html
+    assert "local fastapi backend" in html
+    assert "run live demo" in html
     assert "python.exe -m demo.scenarios" in raw
     assert "pytest.exe -q" in raw
-    assert "static assets only" in html or "does not run" in html
+    assert "static snapshot remains available" in html
 
 
 def test_index_html_no_raw_payload_literal():
     assert "raw_payload" not in _INDEX.read_text(encoding="utf-8").lower()
+
+
+def test_index_html_has_run_live_demo_button():
+    raw = _INDEX.read_text(encoding="utf-8")
+    assert 'id="run-live-demo"' in raw
+    assert "Run Live Demo" in raw
 
 
 def test_app_js_uses_fetch_without_cdn():
@@ -84,6 +94,20 @@ def test_app_js_uses_fetch_without_cdn():
     assert "demo-data.json" in js
     assert "cdn." not in js.lower()
     assert "unpkg" not in js.lower()
+
+
+def test_app_js_has_backend_url_and_static_fallback():
+    js = _APP_JS.read_text(encoding="utf-8")
+    assert "BACKEND_DEMO_URL" in js
+    assert "http://127.0.0.1:8000/api/demo/scenarios" in js
+    assert "Live backend unavailable, showing static snapshot." in js
+    assert "STATIC_DEMO_URL" in js
+
+
+def test_app_js_renders_execution_trace():
+    js = _APP_JS.read_text(encoding="utf-8")
+    assert "execution_trace" in js
+    assert "execution-trace" in js
 
 
 def test_styles_self_contained():

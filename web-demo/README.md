@@ -1,13 +1,34 @@
-# Static visual web demo
+# Visual web demo
 
-This directory is a **read-only presentation layer** for the five end-to-end
-demo scenarios. It mirrors the **shape** of the CLI demo (`python -m demo.scenarios`)
-using static JSON — it does **not** execute the FastAPI app or orchestrator.
+This directory is a no-build browser demo for the five end-to-end scenarios. It
+loads `demo-data.json` as a static fallback and can call the local FastAPI
+backend for a live run of the same scenario flow.
 
-## View locally
+## Live backend mode
 
-Because browsers often block `fetch()` to local JSON from a `file://` URL, use a
-tiny static server from this directory:
+Start the API from the repository root:
+
+```powershell
+cd c:\modelyo-support-agents
+uvicorn app.main:app --reload
+```
+
+Then start the static page:
+
+```powershell
+cd c:\modelyo-support-agents\web-demo
+python -m http.server 8080
+```
+
+Open `http://127.0.0.1:8080/` and click **Run Live Demo**. The browser calls
+`http://127.0.0.1:8000/api/demo/scenarios`.
+
+## Static fallback mode
+
+The page loads `demo-data.json` by default. If the backend is unavailable, it
+keeps showing that static snapshot and displays a clear fallback message.
+Because browsers often block `fetch()` from a `file://` URL, use the static
+server command above rather than opening `index.html` directly.
 
 ```powershell
 cd c:\modelyo-support-agents\web-demo
@@ -20,12 +41,13 @@ Then open `http://127.0.0.1:8080/` in a browser.
 
 Create a Vercel project from this repository and set the **Root Directory** to
 `web-demo`. No build command or npm install is required. Do not add API keys or
-connect external services — this site is static HTML/CSS/JS only.
+connect external services. Hosted presentation uses the static snapshot.
 
 ## Relationship to the real demo
 
 | Surface | Command / location | What it does |
 |---|---|---|
 | Executable demo | `.\.venv\Scripts\python.exe -m demo.scenarios` | Runs orchestrator + scenarios |
+| Live web endpoint | `GET /api/demo/scenarios` | Runs the existing scenario flow and returns safe JSON |
 | Full tests | `.\.venv\Scripts\pytest.exe -q` | Validates all behaviour |
-| This folder | Static files | Reviewer-friendly cards only |
+| This folder | Static files | Reviewer-friendly cards with live-run button and snapshot fallback |

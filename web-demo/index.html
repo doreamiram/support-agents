@@ -15,28 +15,50 @@
   <section class="panel intro" aria-labelledby="status-heading">
     <h2 id="status-heading">System status</h2>
     <ul class="status-list">
-      <li><strong>537/537</strong> tests passing (pytest)</li>
+      <li><strong>549/549</strong> tests passing (pytest)</li>
       <li><strong>5/5</strong> demo scenarios passing (CLI)</li>
       <li><strong>Deterministic prototype</strong> — rule-based orchestration and agents</li>
       <li><strong>No real external integrations</strong> — no live Slack, JIRA, WhatsApp, or outbound calls</li>
       <li><strong>LLM-ready architecture</strong> with <strong>MockLLMProvider</strong> only (no inference API)</li>
     </ul>
     <p class="boundary">
-      This page is a <strong>visual presentation layer</strong> only. It does not run the Python backend.
-      The <strong>executable backend demo</strong> remains: <code>.\.venv\Scripts\python.exe -m demo.scenarios</code>.
-      Backend logic is covered separately by <code>.\.venv\Scripts\pytest.exe -q</code>.
+      This page can show the static snapshot or call the local FastAPI backend for a live run.
+      The authoritative CLI demo remains: <code>.\.venv\Scripts\python.exe -m demo.scenarios</code>.
+      Backend logic is covered by <code>.\.venv\Scripts\pytest.exe -q</code>.
     </p>
   </section>
 
   <section class="panel" aria-labelledby="scenarios-heading">
     <h2 id="scenarios-heading">Scenario cards</h2>
+    <div class="demo-controls" aria-label="Live demo controls">
+      <button id="run-live-demo" type="button">Run Live Demo</button>
+      <p id="live-demo-message" class="hint">Static snapshot loaded by default. Start FastAPI locally, then run the live demo.</p>
+    </div>
+    <dl class="run-summary" aria-label="Demo run summary">
+      <div>
+        <dt>Backend mode</dt>
+        <dd id="backend-mode">Static fallback</dd>
+      </div>
+      <div>
+        <dt>Last run status</dt>
+        <dd id="last-run-status">Static snapshot</dd>
+      </div>
+      <div>
+        <dt>Scenario count</dt>
+        <dd id="scenario-count">0</dd>
+      </div>
+      <div>
+        <dt>Test baseline</dt>
+        <dd id="test-baseline">549/549</dd>
+      </div>
+    </dl>
     <p class="hint" id="load-hint">Loading scenario data…</p>
     <div id="cards" class="cards" hidden></div>
     <p class="fallback" id="fetch-fallback" hidden></p>
   </section>
 
   <footer class="footer">
-    <p>Modelyo Confidential Cloud — support automation prototype. Static assets only; no backend execution from this page.</p>
+    <p>Modelyo Confidential Cloud — support automation prototype. Live mode uses the local backend; static snapshot remains available for hosted presentation.</p>
   </footer>
 
   <script src="app.js"></script>

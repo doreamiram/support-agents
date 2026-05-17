@@ -808,17 +808,29 @@ metadata on `LLMResponse`.
 
 ---
 
-## 17. Visual Web Demo Layer (Phase 9)
+## 17. Visual Web Demo Layer (Phases 9 and 10A)
 
 The `web-demo/` directory (`index.html`, `styles.css`, `app.js`, `demo-data.json`,
-`README.md`) is a **static, Vercel-ready presentation** of the five CLI demo
-scenarios. It sits **outside** the FastAPI application and orchestration stack:
-no Python execution, no database access, and no replacement for
-`python -m demo.scenarios`.
+`README.md`) is a no-build browser presentation of the five CLI demo scenarios.
+Phase 9 introduced the static snapshot. Phase 10A keeps that snapshot and adds
+a live local backend path through `GET /api/demo/scenarios`.
 
 **Purpose:** reviewer-friendly cards (action, reason, PRD mapping, simulated vs
-real) with deterministic JSON content that excludes sensitive payloads.
+real) with deterministic JSON content that excludes sensitive payloads. Phase
+10A also renders a safe high-level execution trace for each scenario.
 
-**Constraints:** no `npm` build, no CDN dependency, no backend calls from the
-browser. Full behaviour remains validated by `tests/test_web_demo_static.py` and
-the existing pytest suite.
+**Live endpoint:** `app/main.py` exposes `GET /api/demo/scenarios`, which calls
+`demo.scenarios.get_live_demo_payload()`. That helper reuses
+`run_all_scenarios()` and returns only browser-safe fields: metadata, scenario
+status, action, reason, static PRD mapping, simulated/real notes, and allow-listed
+trace step names. It does not return raw events, diagnostic values, credentials,
+or audit payload content.
+
+**Local CORS:** `CORSMiddleware` is limited to `http://localhost:8080` and
+`http://127.0.0.1:8080` so the static local server can call FastAPI. It does not
+allow arbitrary origins.
+
+**Constraints:** no `npm` build, no CDN dependency, no frontend framework, no real
+LLM provider, no external service integration, and no dependency changes. Full
+behaviour remains validated by `tests/test_web_demo_static.py`,
+`tests/test_api_endpoints.py`, and the existing pytest suite.

@@ -1,14 +1,19 @@
 ﻿# Modelyo Support Agents ג€” Handoff Document
 
 **Generated:** 2026-05-11  
-**Last updated:** 2026-05-14 (Phase 9 complete)  
-**Status:** Phase 9 complete ג€” 537/537 tests passing
+**Last updated:** 2026-05-17 (Phase 10A complete)  
+**Status:** Phase 10A complete - 549/549 tests passing; live backend-driven web demo added
 
 ---
 
 ## 1. Current Project Status
 
-Phase 9 is **complete**. All 537 tests pass (529 through Phase 8 + 8 net new Phase 9). All five CLI demo scenarios pass. Phase 9 adds only a **static visual web demo** under `web-demo/` ג€” no backend execution from the browser, no new Python dependencies, no `package.json`, and no live external integrations.
+Phase 10A is **complete** with 549/549 tests passing. The browser demo now keeps the Phase 9 static
+snapshot fallback and adds a local live backend path through
+`GET /api/demo/scenarios`. The endpoint reuses `demo.scenarios` and returns only
+safe scenario fields plus high-level execution traces. No real LLM provider,
+API keys, new dependencies, `package.json`, schema changes, or live external
+integrations were added.
 
 ---
 
@@ -27,6 +32,29 @@ Phase 9 is **complete**. All 537 tests pass (529 through Phase 8 + 8 net new Pha
 | **7** | **Demo scenarios, telemetry service, evaluation framework, final documentation** | **512 total** | **ג… Complete** |
 | **8** | **LLM readiness layer (`LLMProvider`, `MockLLMProvider`, sanitization, docs)** | **529 total** | **ג… Complete** |
 | **9** | **Static Vercel-ready visual web demo (`web-demo/`), regression tests** | **537 total** | **ג… Complete** |
+| **10A** | **Live backend-driven web demo endpoint + static fallback** | **549 total** | **Complete** |
+
+---
+
+## 3f. Phase 10A Status
+
+**Approved scope:** `app/main.py`, `demo/scenarios.py`, `web-demo/index.html`,
+`web-demo/styles.css`, `web-demo/app.js`, `web-demo/demo-data.json`,
+`web-demo/README.md`, `tests/test_api_endpoints.py`,
+`tests/test_web_demo_static.py`, and focused documentation updates.
+
+**Code status:** `GET /api/demo/scenarios` runs the existing deterministic demo
+flow and returns browser-safe JSON. `web-demo/` has a **Run Live Demo** button,
+local backend URL config, status summary, scenario count, Phase 10A test baseline
+display, execution traces, and static fallback messaging.
+
+**Confirmations:** No `RealLLMProvider`; no real inference API call; no external
+LLM SDK; no credentials; no npm, `package.json`, React, Next.js, Docker, or
+deployment automation; no database schema changes; no changes to `app/agents/*`
+or `app/db/*`; no real Slack/JIRA/WhatsApp/PagerDuty integrations.
+
+**Local CORS:** FastAPI CORS is limited to `http://localhost:8080` and
+`http://127.0.0.1:8080` for the static local demo server only.
 
 ---
 
@@ -59,7 +87,7 @@ Phase 9 is **complete**. All 537 tests pass (529 through Phase 8 + 8 net new Pha
 | `docs/demo_guide.md` | Optional visual demo; 537-test baseline; interpretation vs CLI |
 | `docs/evaluation_framework.md` | Phase 9 scope, 537 baseline, functional row, ֲ§4 Phase 9 subsection |
 | `docs/design_document.md` | Phase 9 banner; ֲ§17 Visual Web Demo Layer |
-| `docs/requirements_traceability.md` | Q-02 ג†’ 537/537 Phase 9; Q-05 static web demo Done |
+| `docs/requirements_traceability.md` | Q-02 -> 537/537 Phase 9; Q-05 static web demo Done |
 | `HANDOFF.md` | Phase 9 summary, phase table row, this section |
 
 ---
@@ -97,7 +125,7 @@ Phase 9 is **complete**. All 537 tests pass (529 through Phase 8 + 8 net new Pha
 | `README.md` | Phase 8 status, 529 tests, LLM-ready row, architecture line, key design bullets, `docs/llm_integration_notes.md` pointer |
 | `docs/design_document.md` | Phase 8 banner; 15 components; ֲ§16 LLM readiness; evaluation test count 529 |
 | `docs/evaluation_framework.md` | Scope Phase 1ג€“8, 529 baseline, checklist rows, Phase 8 test table row, limitations row |
-| `docs/requirements_traceability.md` | Q-02 ג†’ 529/529 Phase 8; Q-03 LLM-ready Done; Q-04 real inference Deferred; prototype-deferred intro |
+| `docs/requirements_traceability.md` | Q-02 -> 529/529 Phase 8; Q-03 LLM-ready Done; Q-04 real inference Deferred; prototype-deferred intro |
 | `docs/demo_guide.md` | Pytest baseline comment updated to 529 tests |
 | `HANDOFF.md` | Phase 8 summary, phase table row, this section |
 
@@ -165,7 +193,7 @@ Phase 9 is **complete**. All 537 tests pass (529 through Phase 8 + 8 net new Pha
 | File | Purpose |
 |---|---|
 | `app/utils/clock.py` | `ClockProvider` (abstract), `SystemClock` (production), `FakeClock` (tests/demo); `FakeClock.advance(minutes, hours)` |
-| `app/agents/sla_tracker.py` | `SLATracker`, `SLAStatus`; state machine OPEN ג†’ ENGINEER_NOTIFIED ג†’ ACKNOWLEDGED ג†’ RESOLVED/BREACHED; breach detection via ClockProvider; persists to `SLAStateRepository` |
+| `app/agents/sla_tracker.py` | `SLATracker`, `SLAStatus`; state machine OPEN -> ENGINEER_NOTIFIED -> ACKNOWLEDGED -> RESOLVED/BREACHED; breach detection via ClockProvider; persists to `SLAStateRepository` |
 | `app/agents/escalation_engine.py` | `EscalationEngine`, `EscalationResult`, `EscalationAction`; configurable chain lookup (component-specific first, then wildcard); simulated contacts; audit event per escalation |
 | `app/services/communication_policy.py` | `CommunicationPolicy`, `CommDecision`; quiet hours via static UTC offset table; cooldown enforcement; P1 critical override; tenant-scoped rules from `quiet_hours.yaml` |
 | `tests/test_clock.py` | 17 tests for ClockProvider, SystemClock, FakeClock |
@@ -389,8 +417,8 @@ Phase 5 satisfies:
 - **FR-15** (engineer notification): simulated via EscalationEngine
 - **FR-16** (SLA timer from first contact, severity-based): `SLATracker.initialize()` from `sla_rules.yaml`
 - **FR-17** (notified vs. engaged distinction): `engineer_notified` and `engineer_engaged` tracked separately
-- **FR-18** (escalation on SLA timer expiry): `check_breach()` ג†’ `escalation_engine.escalate()`
-- **FR-19** (configurable chain by severity ֳ— component): `EscalationEngine._find_chain()` with component-specific priority
+- **FR-18** (escalation on SLA timer expiry): `check_breach()` -> `escalation_engine.escalate()`
+- **FR-19** (configurable chain by severity x component): `EscalationEngine._find_chain()` with component-specific priority
 - **FR-20** (escalation audit): `escalation_triggered` audit event on every call
 - **FR-21, FR-22** (proactive comms on state changes only; no unsolicited pings): `CommunicationPolicy` gates first-response generation
 - **FR-23** (quiet hours, cooldown, Sev-1 override): fully implemented in `CommunicationPolicy`
@@ -406,7 +434,7 @@ To evaluate the prototype:
 ```powershell
 cd c:\modelyo-support-agents
 
-# Run all 537 tests
+# Run all 549/549 tests
 .\.venv\Scripts\pytest.exe -q
 
 # Run the demo
@@ -425,4 +453,6 @@ See `docs/demo_guide.md` for a full walkthrough, `docs/llm_integration_notes.md`
 for the PRD coverage checklist.
 
 For production next steps, see ֲ§6 of `docs/evaluation_framework.md`.
+
+
 

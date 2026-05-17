@@ -3,8 +3,8 @@
 > **Purpose:** Provide Modelyo with a structured checklist for evaluating this
 > prototype against the PRD requirements (version 0.1, 2026-05-02).
 >
-> **Scope:** Phase 1 through Phase 9 of the prototype implementation.  
-> **Test baseline:** 537 tests, all passing.
+> **Scope:** Phase 1 through Phase 10A of the prototype implementation.  
+> **Test baseline:** 549/549 tests passing.
 
 ---
 
@@ -142,15 +142,22 @@
 | **7** | **54 net** | **512** | **Demo scenarios, telemetry, documentation presence** |
 | **8** | **17 net** | **529** | **LLM provider contract, MockLLMProvider, sanitization, integration notes** |
 | **9** | **8 net** | **537** | **Static web-demo (presentation only), regression tests** |
+| **10A** | **12 net** | **549** | **Live backend-driven web demo endpoint, local-only CORS, static fallback tests** |
 
-**537 / 537 tests passing.  No skipped tests.**
+**549 / 549 tests passing.  No skipped tests.**
 
-### Phase 9 — Visual web demo (presentation only)
+### Phase 10A — Live backend-driven web demo
 
-`web-demo/` is static HTML/CSS/JS with `demo-data.json`; `tests/test_web_demo_static.py`
-asserts file presence, five PASS scenarios, no sensitive substrings in JSON, and
-required reviewer-facing copy. The page does not execute the backend; the CLI
-demo and pytest suite remain authoritative.
+`web-demo/` remains HTML/CSS/JS with `demo-data.json` as a static fallback, and
+now includes a **Run Live Demo** button. The button calls
+`GET /api/demo/scenarios` on the local FastAPI backend and renders live scenario
+results with safe high-level execution traces.
+
+`tests/test_api_endpoints.py` verifies the endpoint exists, returns five PASS
+scenarios, includes allow-listed trace steps, excludes sensitive terms, and only
+allows local static-demo CORS origins. `tests/test_web_demo_static.py` verifies
+the button, backend URL config, static fallback messaging, trace rendering, and
+the continued absence of `package.json`.
 
 ---
 
